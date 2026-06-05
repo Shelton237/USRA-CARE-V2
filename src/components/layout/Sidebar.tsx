@@ -217,7 +217,7 @@ function SidebarInner({ filteredNav, page, counters, navigate, role, roleLabel, 
         <p className="text-white text-[13px] font-semibold leading-tight">{userName || 'Utilisateur'}</p>
         <p className="mt-[3px] text-[11px]" style={{ color: 'rgba(255,255,255,0.45)' }}>{roleLabel}</p>
         <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={() => signOut({ redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/login` })}
           className="mt-3 w-full text-center text-[12px] py-2 rounded-lg transition-colors"
           style={{
             background: 'rgba(255,255,255,0.07)',
