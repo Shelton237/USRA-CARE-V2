@@ -25,9 +25,11 @@ export function UsersPage() {
   const [creating, setCreating] = useState(false)
   const [editing,  setEditing]  = useState<any>(null)
 
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+
   const { data, isLoading } = useQuery({
     queryKey: ['users', search],
-    queryFn:  () => fetch(`/api/users?search=${encodeURIComponent(search)}`).then(r => r.json()),
+    queryFn:  () => fetch(`${B}/api/users?search=${encodeURIComponent(search)}`).then(r => r.json()),
   })
   const users: any[] = data?.data ?? []
 
@@ -202,10 +204,11 @@ function UserForm({ user, currentUserRole, currentUserCountryId, onClose, onSave
 }) {
   const { showToast, showConfirm } = useAppStore()
   const qc = useQueryClient()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   const { data: countriesData } = useQuery({
     queryKey: ['countries-list'],
-    queryFn:  () => fetch('/api/countries').then(r => r.json()),
+    queryFn:  () => fetch(`${B}/api/countries`).then(r => r.json()),
   })
   const countries: any[] = (countriesData?.data ?? []).filter((c: any) => c.active)
 
@@ -249,7 +252,7 @@ function UserForm({ user, currentUserRole, currentUserCountryId, onClose, onSave
     if (!payload.password) delete payload.password
 
     const res = await fetch(
-      user ? `/api/users/${user.id}` : '/api/users',
+      user ? `${B}/api/users/${user.id}` : `${B}/api/users`,
       { method: user ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
     )
     if (res.ok) { onSaved(); onClose() }
@@ -265,7 +268,7 @@ function UserForm({ user, currentUserRole, currentUserCountryId, onClose, onSave
       message: 'Cette action est irréversible. Le compte sera définitivement supprimé.',
       danger:  true,
       onConfirm: async () => {
-        const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' })
+        const res = await fetch(`${B}/api/users/${user.id}`, { method: 'DELETE' })
         if (res.ok) {
           qc.invalidateQueries({ queryKey: ['users'] })
           showToast('Utilisateur supprimé')

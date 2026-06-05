@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
     icon: '/favicon.png',
-    apple: '/icons/apple-touch-icon.png',
   },
   appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'USRA-CARE' },
 }
@@ -27,8 +26,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr" className="h-full">
       <head>
-        <link rel="icon" href="/favicon.png" type="image/png" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${dmSans.className} h-full bg-slate-100 antialiased`}>

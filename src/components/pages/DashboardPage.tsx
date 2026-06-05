@@ -10,9 +10,11 @@ export function DashboardPage() {
   const { data: session } = useSession()
   const { setPage, adminCountryFilter } = useAppStore()
 
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+
   const { data } = useQuery({
     queryKey: ['dashboard', adminCountryFilter],
-    queryFn: () => fetch('/api/dashboard').then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/dashboard`).then(r => r.json()),
     refetchInterval: 60_000,
   })
 

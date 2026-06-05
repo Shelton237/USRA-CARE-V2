@@ -11,6 +11,7 @@ const STATUS_OPTIONS = [{ value: 'all', label: 'Tous statuts' }, ...CANDIDATE_ST
 export function CandidatesPage() {
   const { showToast } = useAppStore()
   const qc = useQueryClient()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [search, setSearch] = useState('')
   const [statusF, setStatusF] = useState('all')
   const [creating, setCreating] = useState(false)
@@ -19,7 +20,7 @@ export function CandidatesPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['candidates', search, statusF],
-    queryFn: () => fetch(`/api/candidates?search=${search}&status=${statusF === 'all' ? '' : statusF}`).then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/candidates?search=${search}&status=${statusF === 'all' ? '' : statusF}`).then(r => r.json()),
   })
 
   const candidates = data?.data ?? []
@@ -80,6 +81,7 @@ export function CandidatesPage() {
 // ─── FORM ──────────────────────────────────────────────────────────────
 function CandidateForm({ candidate, onClose, onSaved }: { candidate?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [tab, setTab] = useState('identity')
   const [f, setF] = useState(candidate ?? {
     countryId: 1, officeId: 1, firstName: '', lastName: '', gender: 'M', phone: '',
@@ -95,7 +97,7 @@ function CandidateForm({ candidate, onClose, onSaved }: { candidate?: any; onClo
 
   const save = async () => {
     if (!f.firstName || !f.lastName || !f.phone) { showToast('Prénom, nom et téléphone requis', 'error'); return }
-    const res = await fetch(candidate ? `/api/candidates/${candidate.id}` : '/api/candidates', {
+    const res = await fetch(candidate ? `${B}/api/candidates/${candidate.id}` : `${B}/api/candidates`, {
       method: candidate ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...f, specialties: [f.primarySpecialtyId] }),

@@ -8,15 +8,17 @@ import { useQuery } from '@tanstack/react-query'
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { toast, confirm, clearConfirm } = useAppStore()
 
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+
   const { data: dashData } = useQuery({
     queryKey: ['dashboard-counters'],
-    queryFn: () => fetch('/api/dashboard').then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/dashboard`).then(r => r.json()),
     refetchInterval: 60_000,
   })
 
   const { data: countriesData } = useQuery({
     queryKey: ['countries-list'],
-    queryFn: () => fetch('/api/countries').then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/countries`).then(r => r.json()),
   })
 
   const counters = dashData?.data?.counters ?? {}

@@ -18,13 +18,14 @@ const TYPE_OPTS = [
 ]
 
 export function InvoicesPage() {
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [search, setSearch] = useState('')
   const [statusF, setStatusF] = useState('all')
   const [typeF, setTypeF] = useState('all')
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', statusF, typeF],
-    queryFn: () => fetch(`/api/invoices?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}`).then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/invoices?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}`).then(r => r.json()),
   })
   const invoices = (data?.data ?? []).filter((i: any) =>
     !search || `${i.reference} ${i.client?.name}`.toLowerCase().includes(search.toLowerCase())

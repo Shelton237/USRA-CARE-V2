@@ -20,6 +20,7 @@ const TYPE_OPTS = [
 export function MissionsPage() {
   const { showToast } = useAppStore()
   const qc = useQueryClient()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [search, setSearch] = useState('')
   const [statusF, setStatusF] = useState('all')
   const [typeF, setTypeF] = useState('all')
@@ -29,7 +30,7 @@ export function MissionsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['missions', statusF, typeF],
-    queryFn: () => fetch(`/api/missions?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}`).then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/missions?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}`).then(r => r.json()),
   })
   const missions = (data?.data ?? []).filter((m: any) =>
     !search || `${m.candidate?.firstName} ${m.candidate?.lastName} ${m.client?.name}`.toLowerCase().includes(search.toLowerCase())
@@ -86,8 +87,9 @@ export function MissionsPage() {
 
 function MissionForm({ mission, onClose, onSaved }: { mission?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore()
-  const { data: candidatesData } = useQuery({ queryKey: ['candidates', '', 'validated'], queryFn: () => fetch('/api/candidates?status=validated').then(r => r.json()) })
-  const { data: clientsData } = useQuery({ queryKey: ['clients', '', ''], queryFn: () => fetch('/api/clients').then(r => r.json()) })
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const { data: candidatesData } = useQuery({ queryKey: ['candidates', '', 'validated'], queryFn: () => fetch(`${B}/api/candidates?status=validated`).then(r => r.json()) })
+  const { data: clientsData } = useQuery({ queryKey: ['clients', '', ''], queryFn: () => fetch(`${B}/api/clients`).then(r => r.json()) })
   const candidates = candidatesData?.data ?? []
   const clients = clientsData?.data ?? []
 
@@ -101,7 +103,7 @@ function MissionForm({ mission, onClose, onSaved }: { mission?: any; onClose: ()
 
   const save = async () => {
     if (!f.clientId || !f.candidateId) { showToast('Client et employé requis', 'error'); return }
-    const res = await fetch(mission ? `/api/missions/${mission.id}` : '/api/missions', {
+    const res = await fetch(mission ? `${B}/api/missions/${mission.id}` : `${B}/api/missions`, {
       method: mission ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(f),
