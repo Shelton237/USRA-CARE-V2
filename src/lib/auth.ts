@@ -8,8 +8,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   secret:    process.env.NEXTAUTH_SECRET,
   session:   { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: {
-    signIn: '/login',
-    error:  '/login',               // Renvoyer les erreurs vers notre page de login
+    signIn: '/v2/login',
+    error:  '/v2/login',
   },
   providers: [
     Credentials({
