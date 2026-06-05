@@ -8,7 +8,7 @@ const dmSans = DM_Sans({ subsets: ['latin'], weight: ['400', '500', '600', '700'
 export const metadata: Metadata = {
   title: 'USRA-CARE Backoffice',
   description: 'Plateforme RH & Placement Multi-Pays',
-  manifest: '/manifest.json',
+  manifest: `${process.env.NEXT_PUBLIC_APP_URL ?? '/v2'}/manifest.json`,
   icons: {
     icon: '/favicon.png',
   },
