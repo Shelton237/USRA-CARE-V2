@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageHeader, Btn, Modal, Tabs, Field, Badge, Card } from '@/components/ui'
+import { PageHeader, Btn, Modal, Tabs, Field, Badge } from '@/components/ui'
 import { useAppStore } from '@/store/app'
 import { Plus, X } from 'lucide-react'
 
@@ -29,7 +29,7 @@ export function CountriesPage() {
     <div className="fade-in space-y-4">
       <PageHeader
         title="Pays / Entités"
-        subtitle={`${countries.length} pays configurés`}
+        subtitle={`${countries.length} pays — configurations administratives, taux légaux, mobile money`}
       />
 
       {isLoading ? (
@@ -93,10 +93,10 @@ function CountryCard({ country, onClick }: { country: any; onClick: () => void }
       <div style={{ borderTop: '1px solid #E2E8F0', marginTop: 10, paddingTop: 10 }}>
         {providers.length > 0 ? (
           <div style={{ fontSize: 12, color: '#475569' }}>
-            Mobile Money : {providers.join(', ')}
+            <strong>Mobile Money :</strong> {providers.join(', ')}
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: '#94A3B8' }}>Mobile Money : —</div>
+          <div style={{ fontSize: 12, color: '#94A3B8' }}><strong>Mobile Money :</strong> —</div>
         )}
       </div>
     </div>
