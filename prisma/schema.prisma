@@ -29,6 +29,7 @@ model Country {
   bankName            String?
   bankAccount         String?
   legalMention        String?  @db.Text
+  mobileMoneyProviders String? @db.Text
   vatRate             Float    @default(20)
   syntheticTaxEnabled Boolean  @default(false)
   syntheticTaxRate    Float    @default(0)

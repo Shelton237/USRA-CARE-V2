@@ -5,6 +5,9 @@ import { CandidatesPage } from '@/components/pages/CandidatesPage'
 import { MissionsPage }   from '@/components/pages/MissionsPage'
 import { InvoicesPage }   from '@/components/pages/InvoicesPage'
 import { UsersPage }      from '@/components/pages/UsersPage'
+import { CountriesPage }  from '@/components/pages/CountriesPage'
+import { SettingsPage }   from '@/components/pages/SettingsPage'
+import { ReportingPage }  from '@/components/pages/ReportingPage'
 
 const GenericPage = ({ title }: { title: string }) => (
   <div className="fade-in flex items-center justify-center h-64">
@@ -33,10 +36,10 @@ const PAGE_MAP: Record<string, React.ComponentType> = {
   complaints:  () => <GenericPage title="Plaintes clients" />,
   equipment:   () => <GenericPage title="Matériels remis" />,
   targets:     () => <GenericPage title="Objectifs" />,
-  reporting:   () => <GenericPage title="Reporting" />,
+  reporting:   ReportingPage,
   users:       UsersPage,
-  countries:   () => <GenericPage title="Pays / Entités" />,
-  settings:    () => <GenericPage title="Paramètres" />,
+  countries:   CountriesPage,
+  settings:    SettingsPage,
 }
 
 export default function DashboardRoute() {
