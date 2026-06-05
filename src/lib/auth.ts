@@ -4,13 +4,18 @@ import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: 'jwt', maxAge: 24 * 60 * 60 },
-  secret: process.env.NEXTAUTH_SECRET,
-  pages: { signIn: '/login' },
+  trustHost:  true,                 // Accepter les requêtes venant d'un reverse proxy
+  secret:     process.env.NEXTAUTH_SECRET,
+  basePath:   '/v2/api/auth',       // Routes NextAuth sous /v2/api/auth avec basePath Next.js
+  session:    { strategy: 'jwt', maxAge: 24 * 60 * 60 },
+  pages: {
+    signIn: '/login',
+    error:  '/login',               // Renvoyer les erreurs vers notre page de login
+  },
   providers: [
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        email:    { label: 'Email',       type: 'email'    },
         password: { label: 'Mot de passe', type: 'password' },
       },
       async authorize(credentials) {
@@ -23,16 +28,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const valid = await bcrypt.compare(credentials.password as string, user.password)
         if (!valid) return null
         return {
-          id: String(user.id),
-          email: user.email,
-          name: `${user.firstName} ${user.lastName}`,
-          role: user.role,
-          countryId: user.countryId,
-          officeId: user.officeId,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          avatar: user.avatar ?? `${user.firstName[0]}${user.lastName[0]}`,
-          countryName: user.country?.name ?? null,
+          id:            String(user.id),
+          email:         user.email,
+          name:          `${user.firstName} ${user.lastName}`,
+          role:          user.role,
+          countryId:     user.countryId,
+          officeId:      user.officeId,
+          firstName:     user.firstName,
+          lastName:      user.lastName,
+          avatar:        user.avatar ?? `${user.firstName[0]}${user.lastName[0]}`,
+          countryName:   user.country?.name   ?? null,
           countrySymbol: user.country?.symbol ?? null,
         }
       },
