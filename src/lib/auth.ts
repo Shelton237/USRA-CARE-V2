@@ -4,10 +4,9 @@ import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost:  true,                 // Accepter les requêtes venant d'un reverse proxy
-  secret:     process.env.NEXTAUTH_SECRET,
-  basePath:   '/v2/api/auth',       // Routes NextAuth sous /v2/api/auth avec basePath Next.js
-  session:    { strategy: 'jwt', maxAge: 24 * 60 * 60 },
+  trustHost: true,                  // Accepter les requêtes venant d'un reverse proxy Apache
+  secret:    process.env.NEXTAUTH_SECRET,
+  session:   { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: {
     signIn: '/login',
     error:  '/login',               // Renvoyer les erreurs vers notre page de login
