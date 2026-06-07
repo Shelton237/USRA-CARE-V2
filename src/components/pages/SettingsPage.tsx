@@ -12,6 +12,30 @@ const TARGET_LABEL: Record<string, string> = {
   user:      'Utilisateur interne',
 }
 
+const ACTION_LABEL: Record<string, string> = {
+  LOGIN:               'Connexion',
+  LOGOUT:              'Déconnexion',
+  LOGIN_FAILED:        'Tentative échouée',
+  CREATE:              'Création',
+  UPDATE:              'Modification',
+  DELETE:              'Suppression',
+  VALIDATE:            'Validation',
+  REJECT:              'Rejet',
+  APPROVE:             'Approbation',
+}
+
+const ACTION_COLOR: Record<string, string> = {
+  LOGIN:               '#0D9488',
+  LOGOUT:              '#64748B',
+  LOGIN_FAILED:        '#DC2626',
+  CREATE:              '#2563EB',
+  UPDATE:              '#D97706',
+  DELETE:              '#DC2626',
+  VALIDATE:            '#16A34A',
+  REJECT:              '#DC2626',
+  APPROVE:             '#16A34A',
+}
+
 // ─── Main page ───────────────────────────────────────────────────────────────
 export function SettingsPage() {
   const [tab, setTab] = useState('notifications')
@@ -107,7 +131,20 @@ function AuditTab() {
     { key: 'timestamp', label: 'Date / heure',
       render: (r: any) => new Date(r.timestamp).toLocaleString('fr-FR') },
     { key: 'userName',  label: 'Utilisateur' },
-    { key: 'action',    label: 'Action' },
+    { key: 'action', label: 'Action',
+      render: (r: any) => {
+        const label = ACTION_LABEL[r.action] ?? r.action
+        const color = ACTION_COLOR[r.action] ?? '#94A3B8'
+        return (
+          <span
+            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+            style={{ background: color + '1A', color }}
+          >
+            {label}
+          </span>
+        )
+      }
+    },
     { key: 'entity',    label: 'Entité',
       render: (r: any) => r.module ? `${r.module} #${r.entityId ?? '—'}` : '—' },
     { key: 'detail',    label: 'Détail',

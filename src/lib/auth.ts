@@ -3,6 +3,14 @@ import Credentials from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
+async function auditAuth(userId: number, action: string, detail?: string) {
+  try {
+    await prisma.auditLog.create({
+      data: { userId, action, module: 'auth', detail: detail ?? null },
+    })
+  } catch {}
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   secret:    process.env.NEXTAUTH_SECRET,
@@ -25,7 +33,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         })
         if (!user || !user.active) return null
         const valid = await bcrypt.compare(credentials.password as string, user.password)
-        if (!valid) return null
+        if (!valid) {
+          await auditAuth(user.id, 'LOGIN_FAILED', `Mot de passe incorrect — ${user.email}`)
+          return null
+        }
         return {
           id:            String(user.id),
           email:         user.email,
@@ -50,6 +61,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }: any) {
       session.user = { ...session.user, ...token }
       return session
+    },
+  },
+  events: {
+    async signIn({ user }: any) {
+      if (user?.id) {
+        await auditAuth(
+          Number(user.id),
+          'LOGIN',
+          `Connexion réussie — ${user.email}`
+        )
+      }
+    },
+    async signOut({ token }: any) {
+      if (token?.id) {
+        await auditAuth(
+          Number(token.id),
+          'LOGOUT',
+          `Déconnexion — ${token.email}`
+        )
+      }
     },
   },
 })
