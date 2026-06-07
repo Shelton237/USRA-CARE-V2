@@ -1,0 +1,615 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── PAYS ─────────────────────────────────────────────────────────────
+model Country {
+  id                  Int      @id @default(autoincrement())
+  name                String
+  code                String   @unique @db.VarChar(5)
+  currency            String
+  currencyName        String
+  symbol              String   @db.VarChar(10)
+  exchangeToEur       Float    @default(1)
+  phonePrefix         String   @db.VarChar(10)
+  invoicePrefix       String   @db.VarChar(5)
+  active              Boolean  @default(true)
+  entityName          String?
+  taxId               String?
+  statId              String?
+  address             String?
+  city                String?
+  entityPhone         String?
+  entityEmail         String?
+  bankName            String?
+  bankAccount         String?
+  legalMention        String?  @db.Text
+  mobileMoneyProviders String? @db.Text
+  vatRate             Float    @default(20)
+  syntheticTaxEnabled Boolean  @default(false)
+  syntheticTaxRate    Float    @default(0)
+  prorataBase         Int      @default(30)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  offices        Office[]
+  users          User[]
+  contributions  Contribution[]
+  irsaBrackets   IrsaBracket[]
+  candidates     Candidate[]
+  clients        Client[]
+  missions       Mission[]
+  invoices       Invoice[]
+  payrolls       Payroll[]
+  attendance     AttendanceRecord[]
+  overtime       OvertimeRecord[]
+  complaints     Complaint[]
+  equipment      EquipmentRecord[]
+  cashEntries    CashEntry[]
+  targets        Target[]
+}
+
+// ─── COTISATIONS SOCIALES ─────────────────────────────────────────────
+model Contribution {
+  id        Int     @id @default(autoincrement())
+  countryId Int
+  code      String
+  label     String
+  mode      String  // percent | fixed
+  value     Float
+  base      String  @default("gross")
+  part      String  // employer | employee
+  enabled   Boolean @default(true)
+  country   Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+}
+
+// ─── TRANCHES IRSA ────────────────────────────────────────────────────
+model IrsaBracket {
+  id         Int     @id @default(autoincrement())
+  countryId  Int
+  fromAmount Float
+  toAmount   Float?
+  rate       Float
+  sortOrder  Int     @default(0)
+  country    Country @relation(fields: [countryId], references: [id], onDelete: Cascade)
+}
+
+// ─── BUREAUX ──────────────────────────────────────────────────────────
+model Office {
+  id        Int      @id @default(autoincrement())
+  countryId Int
+  name      String
+  address   String?
+  city      String?
+  phone     String?
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  country    Country     @relation(fields: [countryId], references: [id])
+  users      User[]
+  candidates Candidate[]
+  clients    Client[]
+}
+
+// ─── UTILISATEURS ─────────────────────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  firstName String
+  lastName  String
+  email     String   @unique
+  phone     String?
+  role      String   // admin | dg | operator
+  countryId Int?
+  officeId  Int?
+  avatar    String?  @db.VarChar(5)
+  active    Boolean  @default(true)
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  country           Country?           @relation(fields: [countryId], references: [id])
+  office            Office?            @relation(fields: [officeId], references: [id])
+  targets           Target[]
+  overtimeCreated   OvertimeRecord[]   @relation("OvertimeCreatedBy")
+  overtimeValidated OvertimeRecord[]   @relation("OvertimeValidatedBy")
+  advancesApproved  Advance[]
+  attendanceCreated AttendanceRecord[] @relation("AttendanceCreatedBy")
+  payrollsValidated Payroll[]
+  complaintsReceived Complaint[]
+  auditLogs         AuditLog[]
+}
+
+// ─── TEMPLATES D'ENTRETIEN ────────────────────────────────────────────
+model InterviewTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  label     String
+  sections  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── SERVICES / MÉTIERS ───────────────────────────────────────────────
+model Service {
+  id                Int      @id @default(autoincrement())
+  name              String
+  type              String   // long_term | short_term | long_term,short_term
+  icon              String?  @db.VarChar(50)
+  category          String?
+  description       String?  @db.Text
+  interviewTemplate String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  candidateSpecialties CandidateSpecialty[]
+  missions             Mission[]
+  serviceRates         ServiceRate[]
+}
+
+// ─── GRILLE TARIFAIRE ─────────────────────────────────────────────────
+model ServiceRate {
+  id           Int    @id @default(autoincrement())
+  serviceId    Int
+  countryId    Int
+  contractType String
+  minRate      Float
+  maxRate      Float
+
+  service Service @relation(fields: [serviceId], references: [id])
+}
+
+// ─── CANDIDATS / EMPLOYÉS ─────────────────────────────────────────────
+model Candidate {
+  id                 Int       @id @default(autoincrement())
+  countryId          Int
+  officeId           Int?
+  firstName          String
+  lastName           String
+  gender             String    @default("M") @db.VarChar(1)
+  birthDate          DateTime?
+  nationalId         String?
+  phone              String
+  phone2             String?
+  email              String?
+  address            String?
+  city               String?
+  photo              String?
+  emergencyName1     String?
+  emergencyPhone1    String?
+  emergencyRelation1 String?
+  emergencyName2     String?
+  emergencyPhone2    String?
+  emergencyRelation2 String?
+  guarantorName      String?
+  guarantorPhone     String?
+  guarantorId        String?
+  guarantorAddress   String?
+  guarantorJob       String?
+  primarySpecialtyId Int?
+  status             String    @default("applied")
+  source             String    @default("walk_in")
+  paymentMethodPref  String    @default("mobile_money")
+  mobileMoneyAccount String?
+  bankAccount        String?
+  notes              String?   @db.Text
+  recruitedById      Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  country     Country              @relation(fields: [countryId], references: [id])
+  office      Office?              @relation(fields: [officeId], references: [id])
+  specialties CandidateSpecialty[]
+  interview   Interview?
+  evaluations Evaluation[]
+  missions    Mission[]
+  payrolls    Payroll[]
+  attendance  AttendanceRecord[]
+  overtime    OvertimeRecord[]
+  advances    Advance[]
+  equipment   EquipmentRecord[]
+  complaints  ComplaintCandidate[]
+}
+
+// ─── SPÉCIALITÉS CANDIDAT ─────────────────────────────────────────────
+model CandidateSpecialty {
+  candidateId Int
+  serviceId   Int
+  isPrimary   Boolean @default(false)
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  service   Service   @relation(fields: [serviceId], references: [id])
+
+  @@id([candidateId, serviceId])
+}
+
+// ─── ENTRETIEN ────────────────────────────────────────────────────────
+model Interview {
+  id          Int      @id @default(autoincrement())
+  candidateId Int      @unique
+  template    String
+  answers     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+}
+
+// ─── CLIENTS ──────────────────────────────────────────────────────────
+model Client {
+  id               Int      @id @default(autoincrement())
+  countryId        Int
+  officeId         Int?
+  type             String   @default("individual")
+  name             String
+  companyName      String?
+  contactPerson    String?
+  phone            String
+  email            String?
+  address          String?  @db.Text
+  nif              String?
+  stat             String?
+  commissionRate   Float    @default(12)
+  paymentTermsDays Int      @default(5)
+  overtimeRate     Float    @default(0)
+  billingFreq      String   @default("monthly")
+  agencyFee        Boolean  @default(true)
+  notes            String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  country     Country      @relation(fields: [countryId], references: [id])
+  office      Office?      @relation(fields: [officeId], references: [id])
+  missions    Mission[]
+  invoices    Invoice[]
+  complaints  Complaint[]
+  evaluations Evaluation[]
+}
+
+// ─── MISSIONS ─────────────────────────────────────────────────────────
+model Mission {
+  id             Int       @id @default(autoincrement())
+  countryId      Int
+  clientId       Int
+  candidateId    Int
+  serviceId      Int
+  contractType   String
+  startDate      DateTime
+  endDate        DateTime?
+  status         String    @default("pending")
+  clientRate     Float     @default(0)
+  employeeRate   Float     @default(0)
+  agencyFee      Float     @default(0)
+  netSalary      Float     @default(0)
+  commissionRate Float     @default(12)
+  prorataBase    Int       @default(30)
+  trialPeriodEnd DateTime?
+  trialConfirmed Boolean   @default(false)
+  notes          String?   @db.Text
+  createdById    Int?
+  approvedById   Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  country      Country            @relation(fields: [countryId], references: [id])
+  client       Client             @relation(fields: [clientId], references: [id])
+  candidate    Candidate          @relation(fields: [candidateId], references: [id])
+  service      Service            @relation(fields: [serviceId], references: [id])
+  attendance   AttendanceRecord[]
+  overtime     OvertimeRecord[]
+  payrolls     Payroll[]
+  invoiceLines InvoiceLine[]
+  equipment    EquipmentRecord[]
+}
+
+// ─── FICHES DE PRÉSENCE ───────────────────────────────────────────────
+model AttendanceRecord {
+  id             Int       @id @default(autoincrement())
+  countryId      Int
+  missionId      Int
+  candidateId    Int
+  period         String
+  daysWorked     Int
+  absJustified   Int       @default(0)
+  absUnjustified Int       @default(0)
+  paidLeave      Int       @default(0)
+  holidays       Int       @default(0)
+  prorataBase    Int       @default(30)
+  status         String    @default("pending")
+  notes          String?
+  createdById    Int?
+  validatedById  Int?
+  validatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  country   Country   @relation(fields: [countryId], references: [id])
+  mission   Mission   @relation(fields: [missionId], references: [id])
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+  createdBy User?     @relation("AttendanceCreatedBy", fields: [createdById], references: [id])
+
+  @@unique([missionId, period])
+}
+
+// ─── HEURES SUPPLÉMENTAIRES ───────────────────────────────────────────
+model OvertimeRecord {
+  id            Int       @id @default(autoincrement())
+  countryId     Int
+  missionId     Int
+  candidateId   Int
+  date          DateTime
+  hours         Float
+  hourlyRate    Float
+  amount        Float
+  description   String?
+  status        String    @default("pending")
+  createdById   Int?
+  validatedById Int?
+  validatedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  country     Country   @relation(fields: [countryId], references: [id])
+  mission     Mission   @relation(fields: [missionId], references: [id])
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  createdBy   User?     @relation("OvertimeCreatedBy", fields: [createdById], references: [id])
+  validatedBy User?     @relation("OvertimeValidatedBy", fields: [validatedById], references: [id])
+}
+
+// ─── AVANCES SUR SALAIRE ──────────────────────────────────────────────
+model Advance {
+  id            Int       @id @default(autoincrement())
+  candidateId   Int
+  amount        Float
+  reason        String?
+  paymentMethod   String?
+  mobileProvider  String?  @db.VarChar(100)
+  status        String    @default("pending")
+  requestDate   DateTime  @default(now())
+  approvedById  Int?
+  approvedAt    DateTime?
+  payrollId     Int?
+  createdAt     DateTime  @default(now())
+
+  candidate  Candidate @relation(fields: [candidateId], references: [id])
+  approvedBy User?     @relation(fields: [approvedById], references: [id])
+  payroll    Payroll?  @relation(fields: [payrollId], references: [id])
+}
+
+// ─── BULLETINS DE PAIE ────────────────────────────────────────────────
+model Payroll {
+  id              Int       @id @default(autoincrement())
+  countryId       Int
+  candidateId     Int
+  missionId       Int
+  period          String
+  contractType    String
+  daysWorked      Int
+  prorataBase     Int       @default(30)
+  prorataCoef     Float     @default(1)
+  netTarget       Float
+  gross           Float
+  totalEmpCotis   Float     @default(0)
+  totalEmprCotis  Float     @default(0)
+  irsa            Float     @default(0)
+  netBase         Float
+  overtimeAmount  Float     @default(0)
+  bonuses         Float     @default(0)
+  deductions      Float     @default(0)
+  netSalary       Float
+  massSalariale   Float     @default(0)
+  cotisationsJson Json?
+  status          String    @default("pending_validation")
+  autoGenerated   Boolean   @default(false)
+  paymentMethod   String?
+  mobileProvider  String?  @db.VarChar(100)
+  paymentRef      String?
+  paymentDate     DateTime?
+  validatedById   Int?
+  validatedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  country     Country   @relation(fields: [countryId], references: [id])
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  mission     Mission   @relation(fields: [missionId], references: [id])
+  validatedBy User?     @relation(fields: [validatedById], references: [id])
+  advances    Advance[]
+}
+
+// ─── FACTURES ─────────────────────────────────────────────────────────
+model Invoice {
+  id            Int       @id @default(autoincrement())
+  countryId     Int
+  clientId      Int
+  reference     String    @unique
+  invoiceType   String
+  date          DateTime
+  dueDate       DateTime?
+  status        String    @default("draft")
+  subtotalHT    Float     @default(0)
+  vatRate       Float     @default(20)
+  vatAmount     Float     @default(0)
+  syntheticTax  Float     @default(0)
+  total         Float
+  notes         String?   @db.Text
+  paymentMethod   String?
+  mobileProvider  String?  @db.VarChar(100)
+  autoGenerated Boolean   @default(false)
+  period        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  country  Country       @relation(fields: [countryId], references: [id])
+  client   Client        @relation(fields: [clientId], references: [id])
+  lines    InvoiceLine[]
+  payments Payment[]
+}
+
+// ─── LIGNES DE FACTURE ────────────────────────────────────────────────
+model InvoiceLine {
+  id          Int     @id @default(autoincrement())
+  invoiceId   Int
+  missionId   Int?
+  candidateId Int?
+  description String  @db.Text
+  quantity    Float   @default(1)
+  unitPrice   Float
+  totalHT     Float
+  daysWorked  Int?
+  prorataCoef Float?
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  mission Mission? @relation(fields: [missionId], references: [id])
+}
+
+// ─── PAIEMENTS ────────────────────────────────────────────────────────
+model Payment {
+  id            Int      @id @default(autoincrement())
+  invoiceId     Int
+  countryId     Int?
+  date          DateTime
+  amount        Float
+  paymentMethod   String
+  mobileProvider  String?  @db.VarChar(100)
+  reference     String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+// ─── CAISSE ───────────────────────────────────────────────────────────
+model CashEntry {
+  id          Int      @id @default(autoincrement())
+  countryId   Int
+  type        String
+  category    String?
+  date        DateTime
+  amount      Float
+  description String?
+  reference   String?
+  createdAt   DateTime @default(now())
+
+  country Country @relation(fields: [countryId], references: [id])
+}
+
+// ─── ÉVALUATIONS ──────────────────────────────────────────────────────
+model Evaluation {
+  id            Int      @id @default(autoincrement())
+  candidateId   Int
+  clientId      Int
+  date          DateTime
+  overallRating Float
+  punctuality   Int      @default(0)
+  quality       Int      @default(0)
+  behavior      Int      @default(0)
+  appearance    Int      @default(0)
+  instructions  Int      @default(0)
+  discretion    Int      @default(0)
+  honesty       Int      @default(0)
+  initiative    Int      @default(0)
+  hygiene       Int      @default(0)
+  comment       String?  @db.Text
+  recommend     String   @default("yes")
+  createdAt     DateTime @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  client    Client    @relation(fields: [clientId], references: [id])
+}
+
+// ─── PLAINTES CLIENTS ─────────────────────────────────────────────────
+model Complaint {
+  id             Int       @id @default(autoincrement())
+  countryId      Int
+  clientId       Int
+  missionId      Int?
+  date           DateTime
+  receivedVia    String    @default("phone")
+  receivedById   Int?
+  type           String
+  severity       String    @default("moderate")
+  description    String    @db.Text
+  status         String    @default("received")
+  decision       String?
+  decisionDetail String?   @db.Text
+  resolvedAt     DateTime?
+  resolvedById   Int?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  country    Country              @relation(fields: [countryId], references: [id])
+  client     Client               @relation(fields: [clientId], references: [id])
+  receivedBy User?                @relation(fields: [receivedById], references: [id])
+  candidates ComplaintCandidate[]
+}
+
+model ComplaintCandidate {
+  complaintId Int
+  candidateId Int
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+
+  @@id([complaintId, candidateId])
+}
+
+// ─── MATÉRIELS REMIS ──────────────────────────────────────────────────
+model EquipmentRecord {
+  id            Int       @id @default(autoincrement())
+  candidateId   Int
+  countryId     Int
+  missionId     Int?
+  date          DateTime
+  items         Json
+  totalValue    Float     @default(0)
+  signed        Boolean   @default(false)
+  returnedAt    DateTime?
+  returnedItems Json?
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now())
+
+  candidate Candidate @relation(fields: [candidateId], references: [id])
+  country   Country   @relation(fields: [countryId], references: [id])
+  mission   Mission?  @relation(fields: [missionId], references: [id])
+}
+
+// ─── OBJECTIFS ────────────────────────────────────────────────────────
+model Target {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  countryId   Int?
+  type        String
+  period      String
+  targetValue Float
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  country Country? @relation(fields: [countryId], references: [id])
+}
+
+// ─── JOURNAL D'AUDIT ──────────────────────────────────────────────────
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  module    String
+  entityId  Int?
+  detail    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── PARAMÈTRES NOTIFICATIONS ─────────────────────────────────────────
+model NotifSetting {
+  id        Int     @id @default(autoincrement())
+  type      String  @unique
+  enabled   Boolean @default(true)
+  threshold Int     @default(7)
+}

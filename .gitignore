@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# Environment variables (SECRETS — ne jamais committer)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# PWA generated files
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
+
+# APK / Android
+*.apk
+*.aab
+*.keystore
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Scripts de fix (temporaires)
+fix_*.py
+add_audit.py
+admin_country_filter.py
+
+# Fichiers de référence / archives
+_reference/
+
+# Prisma generated
+prisma/generated/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
