@@ -37,7 +37,7 @@ export function Btn({
 export function Badge({ children, color = '#0D9488', solid = false }: { children: React.ReactNode; color?: string; solid?: boolean }) {
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold"
-      style={{ background: solid ? color : `${color}18`, color }}>{children}</span>
+      style={{ background: solid ? color : `${color}18`, color: solid ? '#fff' : color }}>{children}</span>
   )
 }
 

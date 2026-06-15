@@ -132,7 +132,7 @@ function SidebarInner({ filteredNav, page, counters, navigate, role, roleLabel, 
         style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <div className="flex-shrink-0 w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center"
           style={{ background: '#0D9488' }}>
-          <Image src="/logo.png" alt="USRA-CARE" width={36} height={36}
+          <Image src="/v2/logo.png" alt="USRA-CARE" width={36} height={36}
             className="object-contain w-full h-full" unoptimized />
         </div>
         <div className="flex-1 min-w-0">

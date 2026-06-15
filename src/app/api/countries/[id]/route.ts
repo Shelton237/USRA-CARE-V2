@@ -1,6 +1,24 @@
 import { prisma } from '@/lib/db'
 import { ok, err, requireAuth } from '@/lib/api'
 
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await requireAuth()
+    if (session.user?.role !== 'admin') return err('Accès refusé', 403)
+    const { id: idStr } = await params
+    const id = parseInt(idStr)
+    if (isNaN(id)) return err('ID invalide', 400)
+    await prisma.contribution.deleteMany({ where: { countryId: id } })
+    await prisma.irsaBracket.deleteMany({ where: { countryId: id } })
+    await prisma.country.delete({ where: { id } })
+    return ok({ deleted: true })
+  } catch (e: any) {
+    if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
+    console.error('DELETE /api/countries/[id]', e)
+    return err('Erreur serveur', 500)
+  }
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAuth()

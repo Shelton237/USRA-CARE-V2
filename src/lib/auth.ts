@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,                  // Accepter les requêtes venant d'un reverse proxy Apache
+  trustHost: true,
   secret:    process.env.NEXTAUTH_SECRET,
   session:   { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: {
@@ -14,7 +14,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email:    { label: 'Email',       type: 'email'    },
+        email:    { label: 'Email',        type: 'email'    },
         password: { label: 'Mot de passe', type: 'password' },
       },
       async authorize(credentials) {

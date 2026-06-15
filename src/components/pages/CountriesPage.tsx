@@ -3,7 +3,18 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader, Btn, Modal, Tabs, Field, Badge } from '@/components/ui'
 import { useAppStore } from '@/store/app'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, Trash2 } from 'lucide-react'
+
+const EMPTY_COUNTRY = {
+  name: '', code: '', active: true,
+  currency: '', currencyName: '', symbol: '', exchangeToEur: 1,
+  phonePrefix: '', invoicePrefix: '', prorataBase: 30, vatRate: 20,
+  syntheticTaxEnabled: false, syntheticTaxRate: 0,
+  entityName: '', taxId: '', statId: '', address: '', city: '',
+  entityPhone: '', entityEmail: '', bankName: '', bankAccount: '',
+  legalMention: '', mobileMoneyProviders: '',
+  contributions: [], irsaBrackets: [],
+}
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 export function CountriesPage() {
@@ -11,6 +22,7 @@ export function CountriesPage() {
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [editing, setEditing] = useState<any>(null)
+  const [adding, setAdding]   = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['countries-all'],
@@ -18,11 +30,18 @@ export function CountriesPage() {
   })
   const countries = data?.data ?? []
 
-  const handleSaved = () => {
+  const refresh = () => {
     qc.invalidateQueries({ queryKey: ['countries-all'] })
     qc.invalidateQueries({ queryKey: ['countries-list'] })
-    showToast('Configuration mise à jour')
-    setEditing(null)
+  }
+
+  const handleSaved = () => { refresh(); showToast('Configuration mise à jour'); setEditing(null) }
+  const handleCreated = () => { refresh(); showToast('Pays ajouté avec succès'); setAdding(false) }
+
+  const handleDelete = async (id: number) => {
+    const res = await fetch(`${B}/api/countries/${id}`, { method: 'DELETE' })
+    if (res.ok) { refresh(); showToast('Pays supprimé'); setEditing(null) }
+    else showToast('Erreur lors de la suppression', 'error')
   }
 
   return (
@@ -30,6 +49,7 @@ export function CountriesPage() {
       <PageHeader
         title="Pays / Entités"
         subtitle={`${countries.length} pays — configurations administratives, taux légaux, mobile money`}
+        actions={<Btn icon={<Plus size={14} />} onClick={() => setAdding(true)}>Ajouter un pays</Btn>}
       />
 
       {isLoading ? (
@@ -37,16 +57,28 @@ export function CountriesPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
           {countries.map((c: any) => (
-            <CountryCard key={c.id} country={c} onClick={() => setEditing(c)} />
+            <CountryCard key={c.id} country={c}
+              onClick={() => setEditing(c)}
+              onDelete={() => handleDelete(c.id)}
+            />
           ))}
         </div>
       )}
 
       {editing && (
         <CountryConfigModal
-          country={editing}
+          country={editing} isNew={false}
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
+          onDelete={() => handleDelete(editing.id)}
+        />
+      )}
+
+      {adding && (
+        <CountryConfigModal
+          country={{ ...EMPTY_COUNTRY }} isNew
+          onClose={() => setAdding(false)}
+          onSaved={handleCreated}
         />
       )}
     </div>
@@ -54,7 +86,7 @@ export function CountriesPage() {
 }
 
 // ─── Country card ─────────────────────────────────────────────────────────────
-function CountryCard({ country, onClick }: { country: any; onClick: () => void }) {
+function CountryCard({ country, onClick, onDelete }: { country: any; onClick: () => void; onDelete: () => void }) {
   const providers = country.mobileMoneyProviders
     ? country.mobileMoneyProviders.split(',').map((s: string) => s.trim()).filter(Boolean)
     : []
@@ -62,15 +94,24 @@ function CountryCard({ country, onClick }: { country: any; onClick: () => void }
   return (
     <div
       onClick={onClick}
-      className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
+      className="group cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
       style={{ padding: 16, background: '#fff', border: '1px solid #E2E8F0', borderRadius: 12 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
         <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>{country.name}</span>
-        <Badge color={country.active ? '#10B981' : '#94A3B8'} solid={country.active}>
-          {country.active ? 'Actif' : 'Inactif'}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={e => { e.stopPropagation(); onDelete() }}
+            className="p-1 rounded-md transition-colors text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100"
+            title="Supprimer ce pays"
+          >
+            <Trash2 size={13} />
+          </button>
+          <Badge color={country.active ? '#10B981' : '#94A3B8'} solid={country.active}>
+            {country.active ? 'Actif' : 'Inactif'}
+          </Badge>
+        </div>
       </div>
 
       {country.entityName && (
@@ -104,8 +145,8 @@ function CountryCard({ country, onClick }: { country: any; onClick: () => void }
 }
 
 // ─── Config modal ─────────────────────────────────────────────────────────────
-function CountryConfigModal({ country, onClose, onSaved }: {
-  country: any; onClose: () => void; onSaved: () => void
+function CountryConfigModal({ country, isNew, onClose, onSaved, onDelete }: {
+  country: any; isNew: boolean; onClose: () => void; onSaved: () => void; onDelete?: () => void
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -180,8 +221,10 @@ function CountryConfigModal({ country, onClose, onSaved }: {
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch(`${B}/api/countries/${country.id}`, {
-        method: 'PUT',
+      const url    = isNew ? `${B}/api/countries` : `${B}/api/countries/${country.id}`
+      const method = isNew ? 'POST' : 'PUT'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...f,
@@ -217,7 +260,7 @@ function CountryConfigModal({ country, onClose, onSaved }: {
   ]
 
   return (
-    <Modal title={`${country.name} — Configuration`} subtitle={f.entityName || undefined} onClose={onClose} size="xl">
+    <Modal title={isNew ? 'Nouveau pays — Configuration' : `${country.name} — Configuration`} subtitle={isNew ? undefined : (f.entityName || undefined)} onClose={onClose} size="xl">
       <Tabs tabs={TABS} active={tab} onChange={setTab} />
 
       {/* ── Tab 1 : Infos administratives ── */}
@@ -231,11 +274,13 @@ function CountryConfigModal({ country, onClose, onSaved }: {
             <Field label="Identifiant fiscal" value={f.taxId} onChange={u('taxId')} placeholder="NIF, IFU, n° fiscal..." />
             <Field label="Identifiant statistique / RCCM" value={f.statId} onChange={u('statId')} />
             <Field label="Adresse" value={f.address} onChange={u('address')} className="col-span-full" />
-            <Field label="Ville" value={f.city} onChange={u('city')} />
-            <Field label="Téléphone" value={f.entityPhone} onChange={u('entityPhone')} />
-            <Field label="Email" value={f.entityEmail} onChange={u('entityEmail')} type="email" />
+            <div className="col-span-full grid grid-cols-3 gap-3">
+              <Field label="Ville" value={f.city} onChange={u('city')} />
+              <Field label="Téléphone" value={f.entityPhone} onChange={u('entityPhone')} />
+              <Field label="Email" value={f.entityEmail} onChange={u('entityEmail')} type="email" />
+            </div>
             <Field label="Compte bancaire (IBAN)" value={f.bankAccount} onChange={u('bankAccount')} className="col-span-full" />
-            <Field label="Mention légale (pied de facture / bulletin)" value={f.legalMention} onChange={u('legalMention')} textarea className="col-span-full" />
+            <Field label="Mention légale (apparaît en pied de facture/bulletin)" value={f.legalMention} onChange={u('legalMention')} textarea className="col-span-full" />
             <div className="col-span-full flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
                 <input type="checkbox" checked={f.active} onChange={e => u('active')(e.target.checked)}
@@ -413,9 +458,18 @@ function CountryConfigModal({ country, onClose, onSaved }: {
       )}
 
       {/* Footer */}
-      <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
-        <Btn variant="secondary" onClick={onClose}>Annuler</Btn>
-        <Btn onClick={save} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Btn>
+      <div className="flex items-center justify-between mt-5 pt-4 border-t border-slate-100">
+        <div>
+          {!isNew && onDelete && (
+            <Btn variant="danger" icon={<Trash2 size={13} />} onClick={onDelete}>
+              Supprimer ce pays
+            </Btn>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Btn variant="secondary" onClick={onClose}>Annuler</Btn>
+          <Btn onClick={save} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Btn>
+        </div>
       </div>
     </Modal>
   )

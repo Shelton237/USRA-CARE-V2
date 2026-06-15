@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       },
       include: {
         country: { select: { name: true, symbol: true } },
-        _count: { select: { missions: true } },
+        _count: { select: { missions: true, invoices: true, complaints: true } },
       },
       orderBy: { createdAt: 'desc' },
     })

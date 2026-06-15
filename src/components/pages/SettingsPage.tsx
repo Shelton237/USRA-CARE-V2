@@ -133,7 +133,7 @@ function AboutTab() {
       <div className="flex items-start gap-5">
         {/* Logo */}
         <div className="flex-shrink-0 w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center" style={{ background: '#0D9488' }}>
-          <Image src="/logo.png" alt="USRA-CARE" width={80} height={80} className="object-contain w-full h-full" unoptimized />
+          <Image src="/v2/logo.png" alt="USRA-CARE" width={80} height={80} className="object-contain w-full h-full" unoptimized />
         </div>
 
         {/* Text */}
@@ -142,15 +142,17 @@ function AboutTab() {
           <div style={{ fontStyle: 'italic', color: '#D4A437', marginBottom: 10 }}>
             « L'humain au service de votre bien-être »
           </div>
-          <div><strong>Version :</strong> 2.0 — Production</div>
+          <div><strong>Version :</strong> 2.0 — Démo complète</div>
           <div><strong>Plateforme :</strong> CRM RH multi-pays Afrique</div>
           <div><strong>Métiers couverts :</strong> Placement de personnel, Mise à disposition</div>
           <div style={{ marginTop: 10 }}>
             <strong>Modules :</strong>{' '}
-            Tableau de bord, Candidats, Clients, Missions, Services, Présences,
-            Heures sup., Avances, Bulletins de paie, Factures, Paiements,
-            Caisse, Évaluations, Plaintes, Matériels, Objectifs, Reporting,
-            Utilisateurs, Pays / Entités, Paramètres
+            Candidats avec entretien dynamique par métier, Clients, Missions avec période d'essai,
+            Heures supplémentaires avec workflow de validation, Avances sur salaire,
+            Fiches de présence mensuelles, Facturation automatique avec prorata,
+            Paie avec prorata transparent et IRSA, Évaluations périodiques 9 critères,
+            Plaintes clients avec workflow et décisions, Matériels remis avec restitution,
+            Objectifs multi-périodes, Reporting consolidé.
           </div>
           <div className="mt-3 p-3 rounded-lg" style={{ background: '#F8FAFC', fontSize: 11.5 }}>
             <strong>USRA CARE SARLU</strong><br />

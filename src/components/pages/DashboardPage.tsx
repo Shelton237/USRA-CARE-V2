@@ -2,96 +2,370 @@
 import { useQuery } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { useAppStore } from '@/store/app'
-import { StatCard, Card, PageHeader, BarChart, Badge } from '@/components/ui'
-import { fmt, fmtDate, pct } from '@/lib/utils'
-import { Users, Briefcase, Receipt, CreditCard, TrendingUp, AlertTriangle, Clock, FileText, ClipboardList, Wallet, Star, MessageSquareWarning } from 'lucide-react'
+import { PageHeader } from '@/components/ui'
+import { fmt, pct } from '@/lib/utils'
+import {
+  Users, Briefcase, Receipt, CreditCard, TrendingUp, AlertTriangle,
+  Clock, ClipboardList, Wallet, MessageSquareWarning, Globe,
+  ArrowDown, ArrowUp, ChevronRight, CheckCircle2, XCircle, Coins,
+} from 'lucide-react'
+
+// ─── Color maps ──────────────────────────────────────────────────────────────
+
+const ALERT_COLOR: Record<string, { bg: string; border: string; text: string; icon: string }> = {
+  warning: { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309', icon: '#F59E0B' },
+  danger:  { bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C', icon: '#EF4444' },
+  info:    { bg: '#EFF6FF', border: '#BFDBFE', text: '#1D4ED8', icon: '#3B82F6' },
+}
+
+const INV_STATUS: Record<string, { label: string; color: string }> = {
+  draft:     { label: 'Brouillon', color: '#94A3B8' },
+  sent:      { label: 'Émise',     color: '#3B82F6' },
+  paid:      { label: 'Payée',     color: '#10B981' },
+  overdue:   { label: 'Retard',    color: '#EF4444' },
+  cancelled: { label: 'Annulée',   color: '#64748B' },
+}
+
+const CONTRACT_TYPE: Record<string, { label: string; color: string }> = {
+  placement: { label: 'Placement',    color: '#0D9488' },
+  mad:       { label: 'MAD',          color: '#7C3AED' },
+  prestation:{ label: 'Prestation',   color: '#3B82F6' },
+}
+
+const MISSION_STATUS: Record<string, { label: string; color: string }> = {
+  active:    { label: 'Actif',   color: '#10B981' },
+  pending:   { label: 'Attente', color: '#F59E0B' },
+  completed: { label: 'Terminé', color: '#0D9488' },
+  cancelled: { label: 'Annulé',  color: '#64748B' },
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { data: session } = useSession()
-  const { setPage, adminCountryFilter } = useAppStore()
-
+  const { setPage } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
-  const { data } = useQuery({
-    queryKey: ['dashboard', adminCountryFilter],
+  const { data, isLoading } = useQuery({
+    queryKey: ['dashboard'],
     queryFn: () => fetch(`${B}/api/dashboard`).then(r => r.json()),
     refetchInterval: 60_000,
   })
 
-  const stats = data?.data?.stats ?? {}
-  const counters = data?.data?.counters ?? {}
-  const countries = data?.data?.countries ?? []
-  const currency = session?.user?.countrySymbol ?? '€'
+  const stats          = data?.data?.stats          ?? {}
+  const counters       = data?.data?.counters        ?? {}
+  const treasury       = data?.data?.treasury        ?? []
+  const pipeline       = data?.data?.pipeline        ?? []
+  const recentInvoices = data?.data?.recentInvoices  ?? []
+  const recentMissions = data?.data?.recentMissions  ?? []
+  const isAdmin        = session?.user?.role === 'admin'
+  const currency       = session?.user?.countrySymbol ?? '€'
 
   const alerts = [
-    { count: counters.overtime, label: 'Heures sup à valider', page: 'overtime', color: 'warning', icon: Clock },
-    { count: counters.advances, label: 'Avances à approuver', page: 'advances', color: 'warning', icon: Wallet },
-    { count: counters.attendance, label: 'Présences à valider', page: 'attendance', color: 'warning', icon: ClipboardList },
-    { count: counters.payrolls, label: 'Bulletins à valider', page: 'payrolls', color: 'warning', icon: FileText },
-    { count: counters.invoices, label: 'Factures en retard', page: 'invoices', color: 'danger', icon: Receipt },
-    { count: counters.complaints, label: 'Plaintes ouvertes', page: 'complaints', color: 'danger', icon: MessageSquareWarning },
-  ].filter(a => a.count > 0)
-
-  const colorMap: any = {
-    warning: { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309', icon: '#F59E0B' },
-    danger:  { bg: '#FEF2F2', border: '#FECACA', text: '#B91C1C', icon: '#EF4444' },
-  }
+    { count: counters.overtime    ?? 0, label: 'Heures sup à valider', page: 'overtime',   color: 'warning', icon: Clock },
+    { count: counters.advances    ?? 0, label: 'Avances à approuver',  page: 'advances',   color: 'warning', icon: Wallet },
+    { count: counters.attendance  ?? 0, label: 'Présences à valider',  page: 'attendance', color: 'warning', icon: ClipboardList },
+    { count: counters.invoices    ?? 0, label: 'Factures en retard',   page: 'invoices',   color: 'danger',  icon: Receipt },
+    { count: counters.complaints  ?? 0, label: 'Plaintes ouvertes',    page: 'complaints', color: 'danger',  icon: MessageSquareWarning },
+    { count: counters.trialEnding ?? 0, label: 'Fin essai proche',     page: 'missions',   color: 'info',    icon: AlertTriangle },
+  ]
 
   return (
     <div className="fade-in space-y-5">
       <PageHeader
-        title={`Bonjour, ${session?.user?.firstName} 👋`}
-        subtitle={session?.user?.role === 'admin' ? 'Vue consolidée — Tous les pays' : session?.user?.countryName ?? ''}
+        title={`Bonjour, ${session?.user?.firstName}`}
+        subtitle={isAdmin ? 'Vue consolidée — Tous les pays' : (session?.user?.countryName ?? '')}
       />
 
-      {/* Alertes */}
-      {alerts.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {alerts.map((a, i) => {
-            const c = colorMap[a.color]
-            const Icon = a.icon
-            return (
-              <div key={i} onClick={() => setPage(a.page as any)}
-                className="rounded-xl p-3 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 border"
-                style={{ background: c.bg, borderColor: c.border }}>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Icon size={14} style={{ color: c.icon }} />
-                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: c.text }}>{a.label}</span>
-                </div>
-                <div className="text-2xl font-black text-slate-900">{a.count}</div>
+      {/* ── Alertes ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {alerts.map((a, i) => {
+          const active = a.count > 0
+          const c = active ? ALERT_COLOR[a.color] : { bg: '#F8FAFC', border: '#E2E8F0', text: '#94A3B8', icon: '#CBD5E1' }
+          const Icon = a.icon
+          return (
+            <div key={i} onClick={() => setPage(a.page as any)}
+              className="rounded-xl p-3 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 border"
+              style={{ background: c.bg, borderColor: c.border }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Icon size={12} style={{ color: c.icon }} />
+                <span className="text-[10px] font-bold uppercase tracking-wide leading-tight" style={{ color: c.text }}>{a.label}</span>
               </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <StatCard label="Candidats" value={stats.candidates ?? 0} icon={<Users size={16}/>} onClick={() => setPage('candidates')} />
-        <StatCard label="Missions actives" value={stats.missions ?? 0} color="#3B82F6" icon={<Briefcase size={16} />} onClick={() => setPage('missions')} />
-        <StatCard label="CA Facturé" value={fmt(stats.totalCA ?? 0, currency)} color="#D4A437" icon={<Receipt size={16}/>} onClick={() => setPage('invoices')} />
-        <StatCard label="Encaissé" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, stats.totalCA ?? 0)}% du CA`} color="#10B981" icon={<CreditCard size={16}/>} onClick={() => setPage('payments')} />
-        <StatCard label="Taux placement" value={`${pct(stats.missions ?? 0, stats.candidates ?? 0)}%`} color="#7C3AED" icon={<TrendingUp size={16}/>} />
+              <div className={`text-3xl font-black ${active ? 'text-slate-900' : 'text-slate-300'}`}>{a.count}</div>
+            </div>
+          )
+        })}
       </div>
 
-      {/* Graphique CA par pays */}
-      {session?.user?.role === 'admin' && countries.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card title="CA par pays (EUR)" className="lg:col-span-2">
-            <BarChart data={countries.map((c: any) => ({ label: c.code, value: 0 }))} color="#0D9488" />
-          </Card>
-          <Card title="Activité globale">
-            <div className="space-y-2">
-              {countries.filter((c: any) => c.active).map((c: any) => (
-                <div key={c.id} className="flex justify-between items-center py-2 border-b border-slate-50">
-                  <span className="text-sm text-slate-600">{c.name}</span>
-                  <Badge color="#0D9488">{c.code}</Badge>
-                </div>
-              ))}
-            </div>
-          </Card>
+      {/* ── KPIs ────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <KpiCard label="Candidats"       icon={Users}       color="#0D9488" value={stats.candidates ?? 0}              sub={`${stats.candidatesAvail ?? 0} disponible${(stats.candidatesAvail ?? 0) !== 1 ? 's' : ''}`} onClick={() => setPage('candidates')} />
+        <KpiCard label="Missions actives" icon={Briefcase}   color="#3B82F6" value={stats.missions ?? 0}                sub={`${stats.allMissions ?? 0} au total`}                                                        onClick={() => setPage('missions')} />
+        <KpiCard label="CA Facturé"      icon={Receipt}     color="#D4A437" value={fmt(stats.totalCA ?? 0, currency)}                                                                                                     onClick={() => setPage('invoices')} />
+        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, stats.totalCA ?? 0)}% du CA`}                          onClick={() => setPage('payments')} />
+        <KpiCard label="Marge active"    icon={TrendingUp}  color="#7C3AED" value={fmt(stats.margin ?? 0, currency)}                                                                                                     onClick={() => setPage('missions')} />
+      </div>
+
+      {/* ── Trésorerie ──────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Coins size={15} className="text-amber-500" strokeWidth={2} />
+            <span className="text-sm font-semibold text-slate-700">Trésorerie — Ce que nous avons en caisse</span>
+          </div>
+          <button onClick={() => setPage('cash')}
+            className="flex items-center gap-1 text-[12px] text-slate-500 hover:text-teal-600 transition-colors font-medium">
+            Voir détail <ChevronRight size={12} />
+          </button>
         </div>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {treasury.map((c: any) => <TreasuryCard key={c.id} country={c} />)}
+          {treasury.length === 0 && !isLoading && (
+            <div className="col-span-3 py-10 text-center text-slate-300 text-sm">
+              <Coins size={28} className="mx-auto mb-2 opacity-40" />Aucune donnée
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Charts ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* CA par pays — 2/3 */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <p className="text-sm font-semibold text-slate-700 mb-4">Chiffre d'affaires par pays (équivalent EUR)</p>
+          <CaBarChart treasury={treasury} isLoading={isLoading} />
+        </div>
+
+        {/* Pipeline — 1/3 */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <p className="text-sm font-semibold text-slate-700 mb-4">Pipeline de recrutement</p>
+          <div className="space-y-3.5">
+            {pipeline.map((p: any) => <PipelineRow key={p.key} item={p} />)}
+            {pipeline.length === 0 && !isLoading && (
+              <div className="text-center py-6 text-slate-300 text-sm">
+                <Users size={24} className="mx-auto mb-2 opacity-40" />Aucun candidat
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Tables ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Dernières factures */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-50">
+            <span className="text-sm font-semibold text-slate-700">Dernières factures</span>
+            <button onClick={() => setPage('invoices')}
+              className="text-[12px] text-slate-400 hover:text-teal-600 transition-colors font-medium">
+              Tout voir
+            </button>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-2.5 text-left">Référence</th>
+                <th className="px-5 py-2.5 text-left">Type</th>
+                <th className="px-5 py-2.5 text-right">Total</th>
+                <th className="px-5 py-2.5 text-right">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentInvoices.map((inv: any) => {
+                const st = INV_STATUS[inv.status] ?? { label: inv.status, color: '#94A3B8' }
+                const ct = CONTRACT_TYPE[inv.invoiceType?.toLowerCase()] ?? { label: inv.invoiceType, color: '#64748B' }
+                return (
+                  <tr key={inv.id} className="border-t border-slate-50 hover:bg-slate-50/60 transition-colors">
+                    <td className="px-5 py-3 font-mono text-[11px] text-slate-600">{inv.reference}</td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold"
+                        style={{ background: ct.color + '18', color: ct.color }}>{ct.label}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right text-[12px] font-semibold text-slate-700">
+                      {fmt(inv.total, inv.country?.symbol ?? '€')}
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold"
+                        style={{ background: st.color + '18', color: st.color }}>{st.label}</span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {recentInvoices.length === 0 && (
+                <tr><td colSpan={4} className="px-5 py-8 text-center text-slate-300 text-xs">Aucune facture</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Missions récentes */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-slate-50">
+            <span className="text-sm font-semibold text-slate-700">Missions récentes</span>
+            <button onClick={() => setPage('missions')}
+              className="text-[12px] text-slate-400 hover:text-teal-600 transition-colors font-medium">
+              Tout voir
+            </button>
+          </div>
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-2.5 text-left">Employé</th>
+                <th className="px-5 py-2.5 text-left">Type</th>
+                <th className="px-5 py-2.5 text-right">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentMissions.map((m: any) => {
+                const st = MISSION_STATUS[m.status] ?? { label: m.status, color: '#94A3B8' }
+                const ct = CONTRACT_TYPE[m.contractType?.toLowerCase()] ?? { label: m.contractType, color: '#64748B' }
+                return (
+                  <tr key={m.id} className="border-t border-slate-50 hover:bg-slate-50/60 transition-colors">
+                    <td className="px-5 py-3">
+                      <span className="text-[12px] font-medium text-slate-700">
+                        {m.candidate?.firstName} {m.candidate?.lastName}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold"
+                        style={{ background: ct.color + '18', color: ct.color }}>{ct.label}</span>
+                    </td>
+                    <td className="px-5 py-3 text-right">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                        style={{ background: st.color + '18', color: st.color }}>
+                        {m.status === 'active' ? <CheckCircle2 size={9} /> : <XCircle size={9} />}
+                        {st.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {recentMissions.length === 0 && (
+                <tr><td colSpan={3} className="px-5 py-8 text-center text-slate-300 text-xs">Aucune mission</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function KpiCard({ label, icon: Icon, color, value, sub, onClick }: {
+  label: string; icon: any; color: string; value: any; sub?: string; onClick?: () => void
+}) {
+  return (
+    <div onClick={onClick}
+      className={`bg-white rounded-2xl border border-slate-100 p-4 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all' : ''}`}>
+      <div className="flex items-start justify-between mb-4">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{label}</span>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: color + '18' }}>
+          <Icon size={15} style={{ color }} strokeWidth={2} />
+        </div>
+      </div>
+      <div className="text-3xl font-black text-slate-900 leading-none">{value}</div>
+      {sub && <div className="text-[11px] text-slate-400 mt-1.5">{sub}</div>}
+    </div>
+  )
+}
+
+function TreasuryCard({ country }: { country: any }) {
+  const balance  = country.balance  ?? 0
+  const totalIn  = country.totalIn  ?? 0
+  const totalOut = country.totalOut ?? 0
+  const positive = balance >= 0
+
+  return (
+    <div className="rounded-2xl border border-teal-100 p-4" style={{ background: '#F0FDF9' }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-full bg-teal-100 flex items-center justify-center shrink-0">
+          <Globe size={12} className="text-teal-600" strokeWidth={2} />
+        </div>
+        <span className="text-sm font-semibold text-slate-700">{country.name}</span>
+      </div>
+      <div className={`text-2xl font-black mb-2 ${positive ? 'text-teal-700' : 'text-red-600'}`}>
+        {balance.toLocaleString('fr-FR')} {country.symbol}
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="flex items-center gap-0.5 text-[11px] text-teal-500 font-medium">
+          <ArrowUp size={10} strokeWidth={2.5} />{totalIn.toLocaleString('fr-FR')} {country.symbol}
+        </span>
+        <span className="flex items-center gap-0.5 text-[11px] text-rose-400 font-medium">
+          <ArrowDown size={10} strokeWidth={2.5} />{totalOut.toLocaleString('fr-FR')} {country.symbol}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function CaBarChart({ treasury, isLoading }: { treasury: any[]; isLoading: boolean }) {
+  if (!treasury.length) {
+    return (
+      <div className="flex flex-col items-center justify-center h-40 text-slate-200">
+        <TrendingUp size={32} className="mb-2" />
+        <span className="text-xs">{isLoading ? 'Chargement…' : 'Aucune donnée'}</span>
+      </div>
+    )
+  }
+
+  const data = treasury.map(c => ({
+    label: c.code,
+    value: Math.round((c.balance ?? 0) * (c.exchangeToEur ?? 0)),
+  }))
+  const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
+
+  const fmtVal = (v: number) => {
+    const abs = Math.abs(v)
+    if (abs >= 1000) return `${(v / 1000).toFixed(0)}k`
+    return v.toLocaleString('fr-FR')
+  }
+
+  return (
+    <div className="flex flex-col" style={{ height: 200 }}>
+      {/* Échelle Y */}
+      <div className="text-[10px] text-slate-300 mb-1 pl-1">{fmtVal(maxVal)}</div>
+      {/* Barres */}
+      <div className="flex items-end flex-1 border-b border-slate-100 gap-6 px-2">
+        {data.map((d, i) => {
+          const heightPct = maxVal > 0 ? Math.max(Math.round((Math.abs(d.value) / maxVal) * 100), d.value > 0 ? 4 : 0) : 0
+          return (
+            <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500">{fmtVal(d.value)}</span>
+              <div className="w-full max-w-[72px] rounded-t-lg transition-all duration-700"
+                style={{
+                  height: `${heightPct}%`,
+                  minHeight: d.value > 0 ? 6 : 2,
+                  background: d.value >= 0 ? '#0D9488' : '#EF4444',
+                  opacity: d.value === 0 ? 0.3 : 1,
+                }} />
+            </div>
+          )
+        })}
+      </div>
+      {/* Labels X */}
+      <div className="flex px-2 pt-2">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 text-center text-[11px] text-slate-400">{d.label}</div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PipelineRow({ item }: { item: any }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-slate-500 shrink-0 truncate" style={{ width: 100 }}>{item.label}</span>
+      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${item.pct || 0}%`, background: item.color }} />
+      </div>
+      <div className="flex items-center gap-1.5 shrink-0 justify-end" style={{ width: 48 }}>
+        <span className="text-[11px] font-bold" style={{ color: item.pct > 0 ? item.color : '#CBD5E1' }}>{item.pct ?? 0}%</span>
+        <span className="text-[11px] text-slate-400">{item.count ?? 0}</span>
+      </div>
     </div>
   )
 }

@@ -7,16 +7,22 @@ export async function GET(req: NextRequest) {
     const session = await requireAuth()
     const scope = scopeFilter(session)
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') ?? ''
-    const type = searchParams.get('type') ?? ''
+    const status   = searchParams.get('status')   ?? ''
+    const type     = searchParams.get('type')     ?? ''
+    const clientId = searchParams.get('clientId') ?? ''
 
     const missions = await prisma.mission.findMany({
-      where: { ...scope, ...(status && { status }), ...(type && { contractType: type }) },
+      where: {
+        ...scope,
+        ...(status   && { status }),
+        ...(type     && { contractType: type }),
+        ...(clientId && { clientId: Number(clientId) }),
+      },
       include: {
         candidate: { select: { id: true, firstName: true, lastName: true, phone: true } },
-        client: { select: { id: true, name: true } },
-        service: { select: { name: true, icon: true } },
-        country: { select: { name: true, symbol: true } },
+        client:    { select: { id: true, name: true, billingFreq: true, overtimeRate: true } },
+        service:   { select: { name: true, icon: true } },
+        country:   { select: { name: true, symbol: true } },
       },
       orderBy: { createdAt: 'desc' },
     })

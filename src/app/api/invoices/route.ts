@@ -7,11 +7,17 @@ export async function GET(req: NextRequest) {
     const session = await requireAuth()
     const scope = scopeFilter(session)
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') ?? ''
-    const type = searchParams.get('type') ?? ''
+    const status   = searchParams.get('status')   ?? ''
+    const type     = searchParams.get('type')     ?? ''
+    const clientId = searchParams.get('clientId') ?? ''
 
     const invoices = await prisma.invoice.findMany({
-      where: { ...scope, ...(status && { status }), ...(type && { invoiceType: type }) },
+      where: {
+        ...scope,
+        ...(status   && { status }),
+        ...(type     && { invoiceType: type }),
+        ...(clientId && { clientId: Number(clientId) }),
+      },
       include: {
         client: { select: { name: true } },
         country: { select: { name: true, symbol: true } },
@@ -29,7 +35,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const body = await req.json()
     const { lines, ...invoiceData } = body
 

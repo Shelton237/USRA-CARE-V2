@@ -33,7 +33,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center mb-5 p-2 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10">
-            <Image src="/logo.png" alt="USRA-CARE" width={72} height={72} className="rounded-xl object-contain" priority />
+            <Image src="/v2/logo.png" alt="USRA-CARE" width={72} height={72} className="rounded-xl object-contain" priority unoptimized />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">USRA-CARE</h1>
           <p className="text-slate-400 text-sm mt-1">Plateforme RH & Placement Multi-Pays</p>

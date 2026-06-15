@@ -1,13 +1,24 @@
 'use client'
 import { useAppStore } from '@/store/app'
-import { DashboardPage }  from '@/components/pages/DashboardPage'
-import { CandidatesPage } from '@/components/pages/CandidatesPage'
-import { MissionsPage }   from '@/components/pages/MissionsPage'
-import { InvoicesPage }   from '@/components/pages/InvoicesPage'
-import { UsersPage }      from '@/components/pages/UsersPage'
-import { CountriesPage }  from '@/components/pages/CountriesPage'
-import { SettingsPage }   from '@/components/pages/SettingsPage'
-import { ReportingPage }  from '@/components/pages/ReportingPage'
+import { DashboardPage }   from '@/components/pages/DashboardPage'
+import { CandidatesPage }  from '@/components/pages/CandidatesPage'
+import { MissionsPage }    from '@/components/pages/MissionsPage'
+import { InvoicesPage }    from '@/components/pages/InvoicesPage'
+import { UsersPage }       from '@/components/pages/UsersPage'
+import { CountriesPage }   from '@/components/pages/CountriesPage'
+import { SettingsPage }    from '@/components/pages/SettingsPage'
+import { ReportingPage }   from '@/components/pages/ReportingPage'
+import { TargetsPage }     from '@/components/pages/TargetsPage'
+import { ClientsPage }     from '@/components/pages/ClientsPage'
+import { ServicesPage }    from '@/components/pages/ServicesPage'
+import { AttendancePage }  from '@/components/pages/AttendancePage'
+import { OvertimePage }    from '@/components/pages/OvertimePage'
+import { AdvancesPage }    from '@/components/pages/AdvancesPage'
+import { PaymentsPage }    from '@/components/pages/PaymentsPage'
+import { CashPage }        from '@/components/pages/CashPage'
+import { EvaluationsPage } from '@/components/pages/EvaluationsPage'
+import { ComplaintsPage }  from '@/components/pages/ComplaintsPage'
+import { EquipmentPage }   from '@/components/pages/EquipmentPage'
 
 const GenericPage = ({ title }: { title: string }) => (
   <div className="fade-in flex items-center justify-center h-64">
@@ -24,18 +35,18 @@ const PAGE_MAP: Record<string, React.ComponentType> = {
   candidates:  CandidatesPage,
   missions:    MissionsPage,
   invoices:    InvoicesPage,
-  clients:     () => <GenericPage title="Clients" />,
-  services:    () => <GenericPage title="Services / Métiers" />,
-  attendance:  () => <GenericPage title="Fiches de présence" />,
-  overtime:    () => <GenericPage title="Heures supplémentaires" />,
-  advances:    () => <GenericPage title="Avances sur salaire" />,
+  clients:     ClientsPage,
+  services:    ServicesPage,
+  attendance:  AttendancePage,
+  overtime:    OvertimePage,
+  advances:    AdvancesPage,
   payrolls:    () => <GenericPage title="Bulletins de paie" />,
-  payments:    () => <GenericPage title="Paiements" />,
-  cash:        () => <GenericPage title="Caisse" />,
-  evaluations: () => <GenericPage title="Évaluations" />,
-  complaints:  () => <GenericPage title="Plaintes clients" />,
-  equipment:   () => <GenericPage title="Matériels remis" />,
-  targets:     () => <GenericPage title="Objectifs" />,
+  payments:    PaymentsPage,
+  cash:        CashPage,
+  evaluations: EvaluationsPage,
+  complaints:  ComplaintsPage,
+  equipment:   EquipmentPage,
+  targets:     TargetsPage,
   reporting:   ReportingPage,
   users:       UsersPage,
   countries:   CountriesPage,

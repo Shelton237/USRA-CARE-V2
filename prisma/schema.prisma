@@ -125,12 +125,24 @@ model User {
   auditLogs         AuditLog[]
 }
 
+// ─── TEMPLATES D'ENTRETIEN ────────────────────────────────────────────
+model InterviewTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  label     String
+  sections  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ─── SERVICES / MÉTIERS ───────────────────────────────────────────────
 model Service {
   id                Int      @id @default(autoincrement())
   name              String
-  type              String   // long_term | short_term
-  icon              String?  @db.VarChar(10)
+  type              String   // long_term | short_term | long_term,short_term
+  icon              String?  @db.VarChar(50)
+  category          String?
+  description       String?  @db.Text
   interviewTemplate String?
   active            Boolean  @default(true)
   createdAt         DateTime @default(now())
@@ -251,11 +263,12 @@ model Client {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  country    Country     @relation(fields: [countryId], references: [id])
-  office     Office?     @relation(fields: [officeId], references: [id])
-  missions   Mission[]
-  invoices   Invoice[]
-  complaints Complaint[]
+  country     Country      @relation(fields: [countryId], references: [id])
+  office      Office?      @relation(fields: [officeId], references: [id])
+  missions    Mission[]
+  invoices    Invoice[]
+  complaints  Complaint[]
+  evaluations Evaluation[]
 }
 
 // ─── MISSIONS ─────────────────────────────────────────────────────────
@@ -496,6 +509,7 @@ model Evaluation {
   createdAt     DateTime @default(now())
 
   candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  client    Client    @relation(fields: [clientId], references: [id])
 }
 
 // ─── PLAINTES CLIENTS ─────────────────────────────────────────────────
