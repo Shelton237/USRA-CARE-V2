@@ -127,3 +127,22 @@ To github.com:Shelton237/USRA-CARE-V2.git
 [2026-06-17 02:00:02] OK Dump : backup_2026-06-17_02-00-02.sql.gz (12K)
 [2026-06-17 02:00:02] Backups existants avant nettoyage : 8
 [2026-06-17 02:00:02] Backups existants avant nettoyage : 8
+[db-backups 0e9d7c1] backup: 2026-06-17_02-00-02 — 12K — 8/10 fichiers
+ 2 files changed, 19 insertions(+)
+ create mode 100644 backup_2026-06-17_02-00-02.sql.gz
+To github.com:Shelton237/USRA-CARE-V2.git
+   6fe4fdb..0e9d7c1  db-backups -> db-backups
+[2026-06-17 02:00:05] OK Push GitHub — branche db-backups
+[2026-06-17 02:00:05] OK Push GitHub — branche db-backups
+[2026-06-17 02:00:05] Fin sauvegarde — 8/10 sauvegardes conservees
+[2026-06-17 02:00:05] Fin sauvegarde — 8/10 sauvegardes conservees
+[2026-06-17 02:00:05] ========================================
+[2026-06-17 02:00:05] ========================================
+[2026-06-18 02:00:02] ========================================
+[2026-06-18 02:00:02] ========================================
+[2026-06-18 02:00:02] Debut sauvegarde — 2026-06-18_02-00-02
+[2026-06-18 02:00:02] Debut sauvegarde — 2026-06-18_02-00-02
+[2026-06-18 02:00:02] OK Dump : backup_2026-06-18_02-00-02.sql.gz (12K)
+[2026-06-18 02:00:02] OK Dump : backup_2026-06-18_02-00-02.sql.gz (12K)
+[2026-06-18 02:00:02] Backups existants avant nettoyage : 9
+[2026-06-18 02:00:02] Backups existants avant nettoyage : 9
