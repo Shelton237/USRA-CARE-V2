@@ -302,3 +302,26 @@ To github.com:Shelton237/USRA-CARE-V2.git
 rm 'backup_2026-06-15_02-00-01.sql.gz'
 [2026-06-25 02:00:02] Supprime : backup_2026-06-15_02-00-01.sql.gz
 [2026-06-25 02:00:02] Supprime : backup_2026-06-15_02-00-01.sql.gz
+[db-backups da9ae95] backup: 2026-06-25_02-00-01 — 12K — 10/10 fichiers
+ 3 files changed, 23 insertions(+)
+ delete mode 100644 backup_2026-06-15_02-00-01.sql.gz
+ create mode 100644 backup_2026-06-25_02-00-01.sql.gz
+To github.com:Shelton237/USRA-CARE-V2.git
+   45809cc..da9ae95  db-backups -> db-backups
+[2026-06-25 02:00:03] OK Push GitHub — branche db-backups
+[2026-06-25 02:00:03] OK Push GitHub — branche db-backups
+[2026-06-25 02:00:03] Fin sauvegarde — 10/10 sauvegardes conservees
+[2026-06-25 02:00:03] Fin sauvegarde — 10/10 sauvegardes conservees
+[2026-06-25 02:00:03] ========================================
+[2026-06-25 02:00:03] ========================================
+[2026-06-26 02:00:01] ========================================
+[2026-06-26 02:00:01] ========================================
+[2026-06-26 02:00:01] Debut sauvegarde — 2026-06-26_02-00-01
+[2026-06-26 02:00:01] Debut sauvegarde — 2026-06-26_02-00-01
+[2026-06-26 02:00:02] OK Dump : backup_2026-06-26_02-00-01.sql.gz (16K)
+[2026-06-26 02:00:02] OK Dump : backup_2026-06-26_02-00-01.sql.gz (16K)
+[2026-06-26 02:00:02] Backups existants avant nettoyage : 11
+[2026-06-26 02:00:02] Backups existants avant nettoyage : 11
+rm 'backup_2026-06-16_02-00-01.sql.gz'
+[2026-06-26 02:00:02] Supprime : backup_2026-06-16_02-00-01.sql.gz
+[2026-06-26 02:00:02] Supprime : backup_2026-06-16_02-00-01.sql.gz
