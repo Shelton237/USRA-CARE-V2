@@ -248,8 +248,8 @@ function calcTrialEnd(startDate: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-function MissionForm({ mission, onClose, onSaved }: {
-  mission?: any; onClose: () => void; onSaved: () => void
+function MissionForm({ mission, onClose, onSaved, userCountryId, isOperator }: {
+  mission?: any; onClose: () => void; onSaved: () => void; userCountryId?: string; isOperator?: boolean
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -281,12 +281,12 @@ function MissionForm({ mission, onClose, onSaved }: {
   const today = new Date().toISOString().slice(0, 10)
 
   const [f, setF] = useState(() => ({
-    countryId:      mission?.countryId      ? String(mission.countryId)   : '1',
+    countryId:      mission?.countryId      ? String(mission.countryId)   : (userCountryId ?? ''),
     clientId:       mission?.clientId       ? String(mission.clientId)    : '',
     candidateId:    mission?.candidateId    ? String(mission.candidateId) : '',
     serviceId:      mission?.serviceId      ? String(mission.serviceId)   : '',
     contractType:   mission?.contractType   ?? 'placement',
-    status:         mission?.status         ?? 'pending',
+    status:         mission?.status         ?? 'active',
     startDate:      mission?.startDate      ? new Date(mission.startDate).toISOString().slice(0, 10)      : today,
     endDate:        mission?.endDate        ? new Date(mission.endDate).toISOString().slice(0, 10)        : '',
     prorataBase:    mission?.prorataBase    ? String(mission.prorataBase) : '30',
@@ -357,7 +357,7 @@ function MissionForm({ mission, onClose, onSaved }: {
 
         {/* Pays | Type de contrat */}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Pays" value={f.countryId} onChange={u('countryId')}
+          <Field label="Pays" value={f.countryId} onChange={u('countryId')} disabled={isOperator}
             options={[
               { value: '', label: 'Sélectionner...' },
               ...countries.map((c: any) => ({ value: String(c.id), label: c.name })),
@@ -455,7 +455,8 @@ export function MissionsPage() {
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const role = (session?.user?.role ?? 'operator') as string
-  const canEdit = sessionStatus === 'authenticated' && role !== 'operator'
+  const canCreate = sessionStatus === 'authenticated'
+  const canEdit   = sessionStatus === 'authenticated' && role !== 'operator'
 
   const [search, setSearch]     = useState('')
   const [statusF, setStatusF]   = useState('all')
@@ -489,7 +490,7 @@ export function MissionsPage() {
         actions={
           <div className="flex items-center gap-2">
             <SearchBox value={search} onChange={setSearch} placeholder="Rechercher..." />
-            {canEdit && (
+            {canCreate && (
               <Btn icon={<Plus size={14} />} onClick={() => setCreating(true)}>
                 Nouvelle mission
               </Btn>
@@ -576,6 +577,8 @@ export function MissionsPage() {
         <MissionForm
           onClose={() => setCreating(false)}
           onSaved={async () => { await refresh(); showToast('Mission créée'); setCreating(false) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'}
         />
       )}
       {editing && (
@@ -583,6 +586,8 @@ export function MissionsPage() {
           mission={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => { await refresh(); showToast('Mission modifiée'); setEditing(null) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'}
         />
       )}
       {viewing && (

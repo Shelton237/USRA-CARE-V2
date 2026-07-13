@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader, SearchBox, Btn, Card, Table, StatusBadge, StarRating, FilterSelect, Modal, Field } from '@/components/ui'
 import { useAppStore } from '@/store/app'
@@ -241,41 +241,57 @@ function CandidateForm({ candidateId, onClose, onSaved }: {
 
   const primarySvc = existing?.specialties?.find((s: any) => s.isPrimary)
 
-  const [f, setF] = useState({
-    countryId: existing?.countryId ?? 1,
-    officeId:  existing?.officeId  ?? '',
-    firstName: existing?.firstName ?? '',
-    lastName:  existing?.lastName  ?? '',
-    gender:    existing?.gender    ?? 'M',
-    birthDate: existing?.birthDate ? existing.birthDate.slice(0, 10) : '',
-    nationalId: existing?.nationalId ?? '',
-    phone:     existing?.phone     ?? '',
-    phone2:    existing?.phone2    ?? '',
-    email:     existing?.email     ?? '',
-    address:   existing?.address   ?? '',
-    city:      existing?.city      ?? '',
-    emergencyName1:     existing?.emergencyName1     ?? '',
-    emergencyPhone1:    existing?.emergencyPhone1    ?? '',
-    emergencyRelation1: existing?.emergencyRelation1 ?? '',
-    emergencyName2:     existing?.emergencyName2     ?? '',
-    emergencyPhone2:    existing?.emergencyPhone2    ?? '',
-    emergencyRelation2: existing?.emergencyRelation2 ?? '',
-    guarantorName:    existing?.guarantorName    ?? '',
-    guarantorPhone:   existing?.guarantorPhone   ?? '',
-    guarantorId:      existing?.guarantorId      ?? '',
-    guarantorJob:     existing?.guarantorJob     ?? '',
-    guarantorAddress: existing?.guarantorAddress ?? '',
-    primarySpecialtyId: primarySvc?.serviceId ? String(primarySvc.serviceId) : '',
-    status:             existing?.status             ?? 'applied',
-    source:             existing?.source             ?? 'walk_in',
-    paymentMethodPref:  existing?.paymentMethodPref  ?? 'mobile_money',
-    mobileMoneyAccount: existing?.mobileMoneyAccount ?? '',
-    bankAccount:        existing?.bankAccount        ?? '',
-    notes:              existing?.notes              ?? '',
-  })
-  const [interviewAnswers, setInterviewAnswers] = useState<Record<string,any>>(
-    existing?.interview?.answers ?? {}
-  )
+  const blankForm = {
+    countryId: '1', officeId: '', firstName: '', lastName: '', gender: 'M',
+    birthDate: '', nationalId: '', phone: '', phone2: '', email: '',
+    address: '', city: '',
+    emergencyName1: '', emergencyPhone1: '', emergencyRelation1: '',
+    emergencyName2: '', emergencyPhone2: '', emergencyRelation2: '',
+    guarantorName: '', guarantorPhone: '', guarantorId: '', guarantorJob: '', guarantorAddress: '',
+    primarySpecialtyId: '', status: 'applied', source: 'walk_in',
+    paymentMethodPref: 'mobile_money', mobileMoneyAccount: '', bankAccount: '', notes: '',
+  }
+
+  const [f, setF] = useState(blankForm)
+  const [interviewAnswers, setInterviewAnswers] = useState<Record<string,any>>({})
+
+  useEffect(() => {
+    if (!existing) return
+    const pSvc = existing.specialties?.find((s: any) => s.isPrimary)
+    setF({
+      countryId: String(existing.countryId ?? 1),
+      officeId:  existing.officeId  ?? '',
+      firstName: existing.firstName ?? '',
+      lastName:  existing.lastName  ?? '',
+      gender:    existing.gender    ?? 'M',
+      birthDate: existing.birthDate ? existing.birthDate.slice(0, 10) : '',
+      nationalId: existing.nationalId ?? '',
+      phone:     existing.phone     ?? '',
+      phone2:    existing.phone2    ?? '',
+      email:     existing.email     ?? '',
+      address:   existing.address   ?? '',
+      city:      existing.city      ?? '',
+      emergencyName1:     existing.emergencyName1     ?? '',
+      emergencyPhone1:    existing.emergencyPhone1    ?? '',
+      emergencyRelation1: existing.emergencyRelation1 ?? '',
+      emergencyName2:     existing.emergencyName2     ?? '',
+      emergencyPhone2:    existing.emergencyPhone2    ?? '',
+      emergencyRelation2: existing.emergencyRelation2 ?? '',
+      guarantorName:    existing.guarantorName    ?? '',
+      guarantorPhone:   existing.guarantorPhone   ?? '',
+      guarantorId:      existing.guarantorId      ?? '',
+      guarantorJob:     existing.guarantorJob     ?? '',
+      guarantorAddress: existing.guarantorAddress ?? '',
+      primarySpecialtyId: pSvc?.serviceId ? String(pSvc.serviceId) : '',
+      status:             existing.status             ?? 'applied',
+      source:             existing.source             ?? 'walk_in',
+      paymentMethodPref:  existing.paymentMethodPref  ?? 'mobile_money',
+      mobileMoneyAccount: existing.mobileMoneyAccount ?? '',
+      bankAccount:        existing.bankAccount        ?? '',
+      notes:              existing.notes              ?? '',
+    })
+    setInterviewAnswers(existing.interview?.answers ?? {})
+  }, [existing])
 
   const u = (k: string) => (v: any) => setF(p => ({ ...p, [k]: v }))
   const selectedCountry = countries.find((c: any) => String(c.id) === String(f.countryId))
@@ -313,7 +329,7 @@ function CandidateForm({ candidateId, onClose, onSaved }: {
   const tabs = [
     { id: 'identity',  label: 'Identité' },
     { id: 'contact',   label: "Contacts d'urgence" },
-    { id: 'guarantor', label: 'Garant' },
+    { id: 'guarantor', label: 'Garant (optionnel)' },
     { id: 'interview', label: 'Entretien' },
     { id: 'pro',       label: 'Statut & paiement' },
   ]

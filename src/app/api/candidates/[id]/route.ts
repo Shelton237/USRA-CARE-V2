@@ -48,13 +48,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (isNaN(id)) return err('ID invalide', 400)
 
     const body = await req.json()
-    const { specialties, primarySpecialtyId, interview, ...data } = body
+    const { specialties, primarySpecialtyId, interview, birthDate, ...data } = body
+    const ns = (v: any) => (v === '' || v == null) ? null : v
 
     await prisma.$transaction(async tx => {
       await tx.candidate.update({
         where: { id },
         data: {
           ...data,
+          birthDate: birthDate ? new Date(birthDate) : null,
+          guarantorName:    ns(data.guarantorName),
+          guarantorPhone:   ns(data.guarantorPhone),
+          guarantorId:      ns(data.guarantorId),
+          guarantorJob:     ns(data.guarantorJob),
+          guarantorAddress: ns(data.guarantorAddress),
           primarySpecialtyId: primarySpecialtyId ? Number(primarySpecialtyId) : null,
         },
       })

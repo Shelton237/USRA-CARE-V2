@@ -19,6 +19,7 @@ import { CashPage }        from '@/components/pages/CashPage'
 import { EvaluationsPage } from '@/components/pages/EvaluationsPage'
 import { ComplaintsPage }  from '@/components/pages/ComplaintsPage'
 import { EquipmentPage }   from '@/components/pages/EquipmentPage'
+import { PayrollsPage }   from '@/components/pages/PayrollsPage'
 
 const GenericPage = ({ title }: { title: string }) => (
   <div className="fade-in flex items-center justify-center h-64">
@@ -40,7 +41,7 @@ const PAGE_MAP: Record<string, React.ComponentType> = {
   attendance:  AttendancePage,
   overtime:    OvertimePage,
   advances:    AdvancesPage,
-  payrolls:    () => <GenericPage title="Bulletins de paie" />,
+  payrolls:    PayrollsPage,
   payments:    PaymentsPage,
   cash:        CashPage,
   evaluations: EvaluationsPage,

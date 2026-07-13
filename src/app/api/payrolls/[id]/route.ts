@@ -36,11 +36,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAuth()
-    if (session.user?.role === 'operator') return err('Accès refusé', 403)
     const { id: idStr } = await params
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
     const body = await req.json()
+
+    if (session.user?.role === 'operator') {
+      if (body.action !== 'pay') return err('Accès refusé', 403)
+      const payroll = await prisma.payroll.findUnique({ where: { id }, select: { countryId: true } })
+      if (payroll?.countryId !== Number(session.user?.countryId)) return err('Accès refusé', 403)
+    }
 
     const data: any = {}
     if (body.action === 'pay') {

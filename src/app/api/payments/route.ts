@@ -47,6 +47,19 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Faire apparaître l'encaissement dans la Caisse (trésorerie)
+    await prisma.cashEntry.create({
+      data: {
+        countryId:   invoice.countryId,
+        type:        'income',
+        category:    'encaissement',
+        date:        new Date(body.date),
+        amount:      Number(body.amount),
+        description: `Facture ${invoice.reference}`,
+        reference:   body.reference ?? null,
+      },
+    })
+
     // Mise à jour statut facture
     const totalPaid = await prisma.payment.aggregate({
       where: { invoiceId: invoice.id },

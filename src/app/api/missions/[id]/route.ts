@@ -29,10 +29,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAuth()
-    if (session.user?.role === 'operator') return err('Accès refusé', 403)
     const { id: idStr } = await params
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
+
+    if (session.user?.role === 'operator') {
+      const existing = await prisma.mission.findUnique({ where: { id }, select: { countryId: true } })
+      if (existing?.countryId !== Number(session.user?.countryId)) return err('Accès refusé', 403)
+    }
+
     const b = await req.json()
     const mission = await prisma.mission.update({
       where: { id },

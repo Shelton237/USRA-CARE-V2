@@ -79,7 +79,7 @@ export function PaymentsPage() {
   const { data, isLoading } = useQuery({ queryKey: ['payments'], queryFn: () => fetch(`${B}/api/payments`).then(r => r.json()) })
   const { data: invData } = useQuery({
     queryKey: ['invoices-pending'],
-    queryFn: () => fetch(`${B}/api/invoices?status=sent,partially_paid`).then(r => r.json()),
+    queryFn: () => fetch(`${B}/api/invoices`).then(r => r.json()),
   })
 
   const payments: any[] = data?.data ?? []
@@ -115,7 +115,7 @@ export function PaymentsPage() {
                 <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
                   <td className="px-4 py-3 text-slate-600 text-xs">{fmtDate(p.date)}</td>
                   <td className="px-4 py-3 font-mono text-xs text-teal-700">{p.invoice?.reference ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-700">{p.invoice?.client?.companyName ?? p.invoice?.client?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-700">{p.invoice?.client?.companyName || p.invoice?.client?.name || '—'}</td>
                   <td className="px-4 py-3 font-bold text-slate-800 text-right">{fmt(p.amount, p.invoice?.country?.symbol ?? '')}</td>
                   <td className="px-4 py-3">
                     <Badge color={METHOD_COLORS[p.paymentMethod] ?? '#94A3B8'}>

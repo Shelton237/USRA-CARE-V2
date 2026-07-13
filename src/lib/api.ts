@@ -1,5 +1,6 @@
 import { auth } from './auth'
 import { NextResponse } from 'next/server'
+import { prisma } from './db'
 
 export async function getSession() {
   return auth()
@@ -25,4 +26,12 @@ export function scopeFilter(session: any) {
   if (role === 'admin') return {}
   if (countryId) return { countryId }
   return {}
+}
+
+export async function logAudit(userId: number, action: string, module: string, entityId?: number, detail?: string) {
+  try {
+    await prisma.auditLog.create({
+      data: { userId, action, module, detail: [entityId ? `id:${entityId}` : null, detail ?? null].filter(Boolean).join(' — ') || null },
+    })
+  } catch {}
 }

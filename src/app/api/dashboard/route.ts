@@ -1,10 +1,18 @@
 import { prisma } from '@/lib/db'
 import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 
-export async function GET() {
+import { NextRequest } from 'next/server'
+
+export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
     const scope = scopeFilter(session)
+    
+    // Apply requested country filter if admin
+    const countryIdParam = req.nextUrl.searchParams.get('countryId')
+    if (session.user?.role === 'admin' && countryIdParam && countryIdParam !== 'all') {
+      scope.countryId = Number(countryIdParam)
+    }
 
     const [
       attendancePending, overtimePending, advancesPending,
@@ -16,6 +24,8 @@ export async function GET() {
       recentInvoices,
       recentMissions,
       pipeline,
+      invoicesByCountry,
+      paidInvoicesByCountry,
     ] = await Promise.all([
       prisma.attendanceRecord.count({ where: { ...scope, status: 'pending' } }),
       prisma.overtimeRecord.count({ where: { ...scope, status: 'pending' } }),
@@ -28,8 +38,8 @@ export async function GET() {
       prisma.candidate.count({ where: { ...scope, status: 'validated' } }),
       prisma.mission.count({ where: { ...scope, status: 'active' } }),
       prisma.mission.count({ where: scope }),
-      prisma.invoice.aggregate({ where: scope, _sum: { total: true } }),
-      prisma.payment.aggregate({ where: {}, _sum: { amount: true } }),
+      prisma.invoice.aggregate({ where: { ...scope, status: { notIn: ['draft', 'cancelled'] } }, _sum: { total: true } }),
+      prisma.payment.aggregate({ where: scope.countryId ? { invoice: { countryId: scope.countryId } } : {}, _sum: { amount: true } }),
       prisma.mission.aggregate({ where: { ...scope, status: 'active' }, _sum: { clientRate: true, netSalary: true } }),
       prisma.country.findMany({ where: { active: true }, select: { id: true, name: true, code: true, symbol: true, exchangeToEur: true } }),
       prisma.cashEntry.findMany({ where: scope, select: { countryId: true, type: true, amount: true } }),
@@ -53,13 +63,26 @@ export async function GET() {
         },
       }),
       prisma.candidate.groupBy({ by: ['status'], where: scope, _count: { id: true } }),
+      prisma.invoice.groupBy({
+        by: ['countryId'],
+        where: { ...scope, status: { notIn: ['draft', 'cancelled'] } },
+        _sum: { total: true },
+      }),
+      prisma.invoice.groupBy({
+        by: ['countryId'],
+        where: { ...scope, status: 'paid' },
+        _sum: { total: true },
+      }),
     ])
 
-    // Trésorerie par pays
-    const treasury = countries.map(c => {
-      const entries = cashEntries.filter(e => e.countryId === c.id)
-      const totalIn  = entries.filter(e => e.type === 'in').reduce((s, e) => s + e.amount, 0)
-      const totalOut = entries.filter(e => e.type === 'out').reduce((s, e) => s + e.amount, 0)
+    // Trésorerie par pays : entrées manuelles + factures payées
+    const treasury = countries.map((c: any) => {
+      const entries = cashEntries.filter((e: any) => e.countryId === c.id)
+      const cashIn   = entries.filter((e: any) => e.type === 'income').reduce((s: number, e: any) => s + e.amount, 0)
+      const cashOut  = entries.filter((e: any) => e.type === 'expense').reduce((s: number, e: any) => s + e.amount, 0)
+      const invoicesPaid = paidInvoicesByCountry.find((e: any) => e.countryId === c.id)?._sum?.total ?? 0
+      const totalIn  = cashIn + invoicesPaid
+      const totalOut = cashOut
       return { ...c, balance: totalIn - totalOut, totalIn, totalOut }
     })
 
@@ -80,10 +103,25 @@ export async function GET() {
 
     const margin = (marginAgg._sum.clientRate ?? 0) - (marginAgg._sum.netSalary ?? 0)
 
+    // CA facturé par pays (hors brouillons/annulés)
+    const caByCountry = countries.map((c: any) => {
+      const entry = invoicesByCountry.find((e: any) => e.countryId === c.id)
+      const totalCA = entry?._sum?.total ?? 0
+      // totalCAEur : convertit en EUR via exchangeToEur (1 unité locale = exchangeToEur EUR)
+      const totalCAEur = Math.round(totalCA * (c.exchangeToEur ?? 1))
+      return { ...c, totalCA, totalCAEur }
+    })
+
+    // Pour le KPI global : somme des CA en EUR sur tous les pays
+    const totalCAEur = caByCountry.reduce((s: number, c: any) => s + c.totalCAEur, 0)
+    // Pour les non-admin : le scope est déjà filtré par pays → on retourne le montant local brut
+    const totalCALocal = invoiceAgg._sum.total ?? 0
+
     return ok({
       counters: { attendance: attendancePending, overtime: overtimePending, advances: advancesPending, payrolls: payrollsPending, invoices: invoicesOverdue, complaints: complaintsOpen, trialEnding },
-      stats: { candidates, candidatesAvail, missions, allMissions, totalCA: invoiceAgg._sum.total ?? 0, totalEncaisse: paymentAgg._sum.amount ?? 0, margin },
+      stats: { candidates, candidatesAvail, missions, allMissions, totalCA: totalCALocal, totalCAEur, totalEncaisse: paymentAgg._sum.amount ?? 0, margin },
       treasury,
+      caByCountry,
       pipeline: pipelineData,
       recentInvoices,
       recentMissions,

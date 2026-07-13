@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader, Btn, Modal, Field, Card, Badge, StatCard, FilterSelect } from '@/components/ui'
 import { useAppStore } from '@/store/app'
+import { useSession } from 'next-auth/react'
 import { fmtDate, fmt } from '@/lib/utils'
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
 
@@ -13,14 +14,14 @@ const CATEGORIES = [
   { value: 'capital',      label: 'Capital / Apport' },
 ]
 
-function CashForm({ countries, onClose, onSaved }: {
-  countries: any[]; onClose: () => void; onSaved: () => void
+function CashForm({ countries, onClose, onSaved, userCountryId, isOperator }: {
+  countries: any[]; onClose: () => void; onSaved: () => void; userCountryId?: string; isOperator?: boolean
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [saving, setSaving] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
-  const [f, setF] = useState({ countryId: '', type: 'income', category: 'encaissement', amount: '', date: today, description: '', reference: '' })
+  const [f, setF] = useState({ countryId: userCountryId ?? '', type: 'income', category: 'encaissement', amount: '', date: today, description: '', reference: '' })
   const u = (k: string) => (v: any) => setF(p => ({ ...p, [k]: v }))
 
   const save = async () => {
@@ -40,7 +41,7 @@ function CashForm({ countries, onClose, onSaved }: {
   return (
     <Modal title="Nouvelle opération" onClose={onClose} size="sm">
       <div className="space-y-3">
-        <Field label="Pays" value={f.countryId} onChange={u('countryId')} options={[{value:'',label:'Sélectionner...'}, ...countries.map(c=>({value:String(c.id),label:c.name}))]} />
+        <Field label="Pays" value={f.countryId} onChange={u('countryId')} disabled={isOperator} options={[{value:'',label:'Sélectionner...'}, ...countries.map(c=>({value:String(c.id),label:c.name}))]} />
         <div className="flex gap-3">
           {[{v:'income',l:'Entrée'},{v:'expense',l:'Sortie'}].map(opt => (
             <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
@@ -67,8 +68,11 @@ function CashForm({ countries, onClose, onSaved }: {
 
 export function CashPage() {
   const { showToast, showConfirm } = useAppStore()
+  const { data: session, status: sessionStatus } = useSession()
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const role = (session?.user?.role ?? 'operator') as string
+  const isOperator = sessionStatus === 'authenticated' && role === 'operator'
   const [typeF, setTypeF] = useState('all')
   const [creating, setCreating] = useState(false)
 
@@ -80,8 +84,13 @@ export function CashPage() {
   const entries = all.filter(e => typeF === 'all' || e.type === typeF)
   const refresh = () => qc.refetchQueries({ queryKey: ['cash'] })
 
-  const totalIncome  = all.filter(e => e.type === 'income').reduce((s, e) => s + (e.amount * (e.country?.exchangeToEur ?? 1)), 0)
-  const totalExpense = all.filter(e => e.type === 'expense').reduce((s, e) => s + (e.amount * (e.country?.exchangeToEur ?? 1)), 0)
+  // Admin : consolidé en EUR ; DG + Opérateur : devise locale du pays rattaché
+  const useLocal = role !== 'admin'
+  const userCountryId = Number((session?.user as any)?.countryId)
+  const userCountry = countries.find((c: any) => c.id === userCountryId)
+  const countrySym = useLocal ? (userCountry?.symbol ?? all[0]?.country?.symbol ?? '') : '€'
+  const totalIncome  = all.filter(e => e.type === 'income').reduce((s, e) => s + (useLocal ? e.amount : e.amount * (e.country?.exchangeToEur ?? 1)), 0)
+  const totalExpense = all.filter(e => e.type === 'expense').reduce((s, e) => s + (useLocal ? e.amount : e.amount * (e.country?.exchangeToEur ?? 1)), 0)
   const balance = totalIncome - totalExpense
 
   const handleDelete = (e: any) => {
@@ -101,14 +110,14 @@ export function CashPage() {
     <div className="fade-in space-y-4">
       <PageHeader
         title="Trésorerie"
-        subtitle={`Solde consolidé : ${fmt(balance, '€')}`}
+        subtitle={`Solde consolidé : ${fmt(balance, countrySym)}`}
         actions={<Btn icon={<Plus size={14}/>} onClick={() => setCreating(true)}>Nouvelle opération</Btn>}
       />
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Entrées" value={fmt(totalIncome, '€')} color="#10B981" icon={<TrendingUp size={16}/>} />
-        <StatCard label="Sorties" value={fmt(totalExpense, '€')} color="#EF4444" icon={<TrendingDown size={16}/>} />
-        <StatCard label="Solde" value={fmt(balance, '€')} color={balance >= 0 ? '#10B981' : '#EF4444'} icon={<Wallet size={16}/>} />
+        <StatCard label="Entrées" value={fmt(totalIncome, countrySym)} color="#10B981" icon={<TrendingUp size={16}/>} />
+        <StatCard label="Sorties" value={fmt(totalExpense, countrySym)} color="#EF4444" icon={<TrendingDown size={16}/>} />
+        <StatCard label="Solde" value={fmt(balance, countrySym)} color={balance >= 0 ? '#10B981' : '#EF4444'} icon={<Wallet size={16}/>} />
       </div>
 
       <div className="flex gap-2">
@@ -160,7 +169,9 @@ export function CashPage() {
 
       {creating && (
         <CashForm countries={countries} onClose={() => setCreating(false)}
-          onSaved={async () => { await refresh(); showToast('Opération enregistrée'); setCreating(false) }} />
+          onSaved={async () => { await refresh(); showToast('Opération enregistrée'); setCreating(false) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={isOperator} />
       )}
     </div>
   )

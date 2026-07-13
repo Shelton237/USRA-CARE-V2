@@ -5,10 +5,10 @@ import { PageHeader, Btn, Modal, Field, Card, StatusBadge, Badge } from '@/compo
 import { useAppStore } from '@/store/app'
 import { useSession } from 'next-auth/react'
 import { fmtDate, currentPeriod, periodLabel } from '@/lib/utils'
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Plus } from 'lucide-react'
 
-function AttendanceForm({ record, mission, period, onClose, onSaved }: {
-  record?: any; mission?: any; period: string; onClose: () => void; onSaved: () => void
+function AttendanceForm({ record, mission, period, canValidate, onClose, onSaved }: {
+  record?: any; mission?: any; period: string; canValidate: boolean; onClose: () => void; onSaved: () => void
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -94,7 +94,9 @@ function AttendanceForm({ record, mission, period, onClose, onSaved }: {
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
           <Btn variant="secondary" onClick={onClose}>Annuler</Btn>
           <Btn variant="secondary" onClick={() => save(false)} disabled={saving}>Enregistrer brouillon</Btn>
-          <Btn variant="success" onClick={() => save(true)} disabled={saving}>Enregistrer et valider</Btn>
+          {canValidate && (
+            <Btn variant="success" onClick={() => save(true)} disabled={saving}>Enregistrer et valider</Btn>
+          )}
         </div>
       </div>
     </Modal>
@@ -112,6 +114,7 @@ export function AttendancePage() {
   const [period, setPeriod] = useState(currentPeriod())
   const [creating, setCreating] = useState<any>(null)
   const [editing, setEditing] = useState<any>(null)
+  const [showPicker, setShowPicker] = useState(false)
 
   // Navigation de période
   const movePeriod = (dir: number) => {
@@ -151,6 +154,11 @@ export function AttendancePage() {
       <PageHeader
         title="Fiches de présence"
         subtitle={`Période : ${periodLabel(period)}`}
+        actions={
+          <Btn icon={<Plus size={14}/>} onClick={() => setShowPicker(true)}>
+            Nouvelle fiche
+          </Btn>
+        }
       />
 
       {/* Sélecteur de période */}
@@ -220,12 +228,30 @@ export function AttendancePage() {
         )}
       </Card>
 
+      {showPicker && (
+        <Modal title="Choisir une mission" onClose={() => setShowPicker(false)} size="md">
+          <div className="space-y-2">
+            {missions.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-sm">Aucune mission active</div>
+            ) : (
+              missions.map((m: any) => (
+                <button key={m.id}
+                  onClick={() => { setCreating(m); setShowPicker(false) }}
+                  className="w-full text-left px-4 py-3 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-teal-50 transition-colors">
+                  <div className="font-semibold text-slate-800 text-sm">{m.candidate?.firstName} {m.candidate?.lastName}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{m.client?.name}</div>
+                </button>
+              ))
+            )}
+          </div>
+        </Modal>
+      )}
       {creating && (
-        <AttendanceForm mission={creating} period={period} onClose={() => setCreating(null)}
+        <AttendanceForm mission={creating} period={period} canValidate={canValidate} onClose={() => setCreating(null)}
           onSaved={async () => { await refresh(); showToast('Fiche enregistrée'); setCreating(null) }} />
       )}
       {editing && (
-        <AttendanceForm record={editing} period={period} onClose={() => setEditing(null)}
+        <AttendanceForm record={editing} period={period} canValidate={canValidate} onClose={() => setEditing(null)}
           onSaved={async () => { await refresh(); showToast('Fiche mise à jour'); setEditing(null) }} />
       )}
     </div>

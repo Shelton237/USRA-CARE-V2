@@ -43,23 +43,34 @@ const MISSION_STATUS: Record<string, { label: string; color: string }> = {
 
 export function DashboardPage() {
   const { data: session } = useSession()
-  const { setPage } = useAppStore()
+  const { adminCountryFilter, setPage } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => fetch(`${B}/api/dashboard`).then(r => r.json()),
+    queryKey: ['dashboard', adminCountryFilter],
+    queryFn: () => {
+      const q = adminCountryFilter !== 'all' ? `?countryId=${adminCountryFilter}` : ''
+      return fetch(`${B}/api/dashboard${q}`).then(r => r.json())
+    },
     refetchInterval: 60_000,
   })
 
   const stats          = data?.data?.stats          ?? {}
   const counters       = data?.data?.counters        ?? {}
   const treasury       = data?.data?.treasury        ?? []
+  const caByCountry    = data?.data?.caByCountry     ?? []
   const pipeline       = data?.data?.pipeline        ?? []
   const recentInvoices = data?.data?.recentInvoices  ?? []
   const recentMissions = data?.data?.recentMissions  ?? []
+  const countriesData  = data?.data?.countries       ?? []
+  
   const isAdmin        = session?.user?.role === 'admin'
-  const currency       = session?.user?.countrySymbol ?? '€'
+  const isGlobalView   = isAdmin && adminCountryFilter === 'all'
+  const selectedCtry   = adminCountryFilter !== 'all' ? countriesData.find((c: any) => String(c.id) === adminCountryFilter) : null
+  
+  const currency       = isGlobalView ? '€' : (selectedCtry?.symbol ?? (session?.user as any)?.countrySymbol ?? '€')
+  // Pour la vue globale (admin) : CA en EUR converti ; pour un pays spécifique : montant local brut
+  const displayCA      = isGlobalView ? (stats.totalCAEur ?? 0) : (stats.totalCA ?? 0)
 
   const alerts = [
     { count: counters.overtime    ?? 0, label: 'Heures sup à valider', page: 'overtime',   color: 'warning', icon: Clock },
@@ -101,8 +112,8 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiCard label="Candidats"       icon={Users}       color="#0D9488" value={stats.candidates ?? 0}              sub={`${stats.candidatesAvail ?? 0} disponible${(stats.candidatesAvail ?? 0) !== 1 ? 's' : ''}`} onClick={() => setPage('candidates')} />
         <KpiCard label="Missions actives" icon={Briefcase}   color="#3B82F6" value={stats.missions ?? 0}                sub={`${stats.allMissions ?? 0} au total`}                                                        onClick={() => setPage('missions')} />
-        <KpiCard label="CA Facturé"      icon={Receipt}     color="#D4A437" value={fmt(stats.totalCA ?? 0, currency)}                                                                                                     onClick={() => setPage('invoices')} />
-        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, stats.totalCA ?? 0)}% du CA`}                          onClick={() => setPage('payments')} />
+        <KpiCard label="CA Facturé"      icon={Receipt}     color="#D4A437" value={fmt(displayCA, currency)}                                                                                                          onClick={() => setPage('invoices')} />
+        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, displayCA)}% du CA`}                                   onClick={() => setPage('payments')} />
         <KpiCard label="Marge active"    icon={TrendingUp}  color="#7C3AED" value={fmt(stats.margin ?? 0, currency)}                                                                                                     onClick={() => setPage('missions')} />
       </div>
 
@@ -133,7 +144,7 @@ export function DashboardPage() {
         {/* CA par pays — 2/3 */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <p className="text-sm font-semibold text-slate-700 mb-4">Chiffre d'affaires par pays (équivalent EUR)</p>
-          <CaBarChart treasury={treasury} isLoading={isLoading} />
+          <CaBarChart caByCountry={caByCountry} isLoading={isLoading} />
         </div>
 
         {/* Pipeline — 1/3 */}
@@ -300,8 +311,9 @@ function TreasuryCard({ country }: { country: any }) {
   )
 }
 
-function CaBarChart({ treasury, isLoading }: { treasury: any[]; isLoading: boolean }) {
-  if (!treasury.length) {
+function CaBarChart({ caByCountry, isLoading }: { caByCountry: any[]; isLoading: boolean }) {
+  const hasData = caByCountry.some((c: any) => (c.totalCA ?? 0) > 0)
+  if (!hasData) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-slate-200">
         <TrendingUp size={32} className="mb-2" />
@@ -310,9 +322,9 @@ function CaBarChart({ treasury, isLoading }: { treasury: any[]; isLoading: boole
     )
   }
 
-  const data = treasury.map(c => ({
+  const data = caByCountry.map((c: any) => ({
     label: c.code,
-    value: Math.round((c.balance ?? 0) * (c.exchangeToEur ?? 0)),
+    value: c.totalCAEur ?? Math.round((c.totalCA ?? 0) * (c.exchangeToEur ?? 1)),
   }))
   const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
 

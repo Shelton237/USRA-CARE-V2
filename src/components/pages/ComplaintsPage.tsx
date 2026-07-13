@@ -70,7 +70,7 @@ function ComplaintDetail({ complaint, canEdit, onClose, onUpdated }: {
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div><span className="text-xs text-slate-500">Date</span><div className="font-medium">{fmtDate(complaint.date)}</div></div>
           <div><span className="text-xs text-slate-500">Canal</span><div className="font-medium">{CHANNELS.find(c=>c.value===complaint.receivedVia)?.label ?? complaint.receivedVia}</div></div>
-          <div><span className="text-xs text-slate-500">Client</span><div className="font-medium">{complaint.client?.companyName ?? complaint.client?.name}</div></div>
+          <div><span className="text-xs text-slate-500">Client</span><div className="font-medium">{complaint.client?.companyName || complaint.client?.name}</div></div>
           <div><span className="text-xs text-slate-500">Gravité</span><div className="mt-0.5"><SeverityBadge s={complaint.severity}/></div></div>
           <div><span className="text-xs text-slate-500">Type</span><div className="font-medium">{COMPLAINT_TYPES.find(t=>t.id===complaint.type)?.label ?? complaint.type}</div></div>
           <div><span className="text-xs text-slate-500">Statut</span><div className="mt-0.5"><StatusBadge status={complaint.status}/></div></div>
@@ -270,7 +270,7 @@ export function ComplaintsPage() {
                 return (
                   <tr key={c.id} onClick={() => setViewing(c)} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer">
                     <td className="px-4 py-3 text-xs text-slate-600">{fmtDate(c.date)}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{c.client?.companyName ?? c.client?.name}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{c.client?.companyName || c.client?.name}</td>
                     <td className="px-4 py-3 text-slate-600 text-xs">{names || '—'}</td>
                     <td className="px-4 py-3 text-slate-600 text-xs">{COMPLAINT_TYPES.find(t=>t.id===c.type)?.label ?? c.type}</td>
                     <td className="px-4 py-3"><SeverityBadge s={c.severity}/></td>

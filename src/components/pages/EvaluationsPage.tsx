@@ -205,7 +205,7 @@ export function EvaluationsPage() {
                 <tr key={e.id} className="border-b border-slate-50 hover:bg-slate-50">
                   <td className="px-4 py-3 text-xs text-slate-600">{fmtDate(e.date)}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{e.candidate?.firstName} {e.candidate?.lastName}</td>
-                  <td className="px-4 py-3 text-slate-600">{e.client?.companyName ?? e.client?.name ?? '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{e.client?.companyName || e.client?.name || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <Stars value={Math.round(e.overallRating)} readonly />

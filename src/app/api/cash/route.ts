@@ -20,12 +20,15 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAuth()
+    const session = await requireAuth()
     const body = await req.json()
-    if (!body.countryId || !body.type || !body.amount) return err('Champs requis manquants', 400)
+    const countryId = session.user?.role === 'operator'
+      ? Number(session.user.countryId)
+      : Number(body.countryId)
+    if (!countryId || !body.type || !body.amount) return err('Champs requis manquants', 400)
     const entry = await prisma.cashEntry.create({
       data: {
-        countryId:   Number(body.countryId),
+        countryId,
         type:        body.type,
         category:    body.category    ?? null,
         date:        new Date(body.date),

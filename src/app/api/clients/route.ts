@@ -37,9 +37,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireAuth()
+    const session = await requireAuth()
     const body = await req.json()
-    const client = await prisma.client.create({ data: body })
+    const countryId = session.user?.role === 'operator'
+      ? Number(session.user.countryId)
+      : body.countryId
+    const client = await prisma.client.create({ data: { ...body, countryId } })
     return ok(client, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

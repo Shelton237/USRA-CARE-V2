@@ -12,6 +12,8 @@ const EMPTY_COUNTRY = {
   syntheticTaxEnabled: false, syntheticTaxRate: 0,
   entityName: '', taxId: '', statId: '', address: '', city: '',
   entityPhone: '', entityEmail: '', bankName: '', bankAccount: '',
+  bankCode: '', agencyCode: '', ribKey: '', iban: '', bic: '',
+  mobileMoneyAccount: '',
   legalMention: '', mobileMoneyProviders: '',
   contributions: [], irsaBrackets: [],
 }
@@ -180,6 +182,12 @@ function CountryConfigModal({ country, isNew, onClose, onSaved, onDelete }: {
     entityEmail:          country.entityEmail ?? '',
     bankName:             country.bankName ?? '',
     bankAccount:          country.bankAccount ?? '',
+    bankCode:             country.bankCode ?? '',
+    agencyCode:           country.agencyCode ?? '',
+    ribKey:               country.ribKey ?? '',
+    iban:                 country.iban ?? '',
+    bic:                  country.bic ?? '',
+    mobileMoneyAccount:   country.mobileMoneyAccount ?? '',
     legalMention:         country.legalMention ?? '',
     // Mobile money (join array → string for editing)
     mobileMoneyProviders: country.mobileMoneyProviders ?? '',
@@ -279,7 +287,23 @@ function CountryConfigModal({ country, isNew, onClose, onSaved, onDelete }: {
               <Field label="Téléphone" value={f.entityPhone} onChange={u('entityPhone')} />
               <Field label="Email" value={f.entityEmail} onChange={u('entityEmail')} type="email" />
             </div>
-            <Field label="Compte bancaire (IBAN)" value={f.bankAccount} onChange={u('bankAccount')} className="col-span-full" />
+            {/* ── Coordonnées bancaires ── */}
+            <div className="col-span-full">
+              <div className="rounded-lg px-3 py-2 text-xs mb-2" style={{ background: '#F0FDFA', color: '#0D9488', fontWeight: 600 }}>Coordonnées bancaires (RIB)</div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Nom de la banque" value={f.bankName} onChange={u('bankName')} placeholder="AFG Bank Madagascar..." className="col-span-full" />
+                <Field label="Domiciliation / Agence" value={f.agencyCode} onChange={u('agencyCode')} placeholder="AFGB MADA ANDRANOMENA" />
+                <Field label="Code banque" value={f.bankCode} onChange={u('bankCode')} placeholder="00017" />
+                <Field label="Numéro de compte" value={f.bankAccount} onChange={u('bankAccount')} placeholder="00013559801" />
+                <Field label="Clé RIB" value={f.ribKey} onChange={u('ribKey')} placeholder="68" />
+                <Field label="BIC / SWIFT" value={f.bic} onChange={u('bic')} placeholder="AFGMMGMG" />
+                <Field label="IBAN" value={f.iban} onChange={u('iban')} placeholder="MG46000170100500013559801 68" className="col-span-full" />
+              </div>
+            </div>
+            <div className="col-span-full">
+              <div className="rounded-lg px-3 py-2 text-xs mb-2" style={{ background: '#FFF7ED', color: '#F97316', fontWeight: 600 }}>Paiement Mobile Money (affiché si pas de RIB)</div>
+              <Field label="Numéro Mobile Money (Orange Money, Mvola..." value={f.mobileMoneyAccount} onChange={u('mobileMoneyAccount')} placeholder="Ex: 699073975" />
+            </div>
             <Field label="Mention légale (apparaît en pied de facture/bulletin)" value={f.legalMention} onChange={u('legalMention')} textarea className="col-span-full" />
             <div className="col-span-full flex items-center gap-3">
               <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
