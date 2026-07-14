@@ -13,11 +13,12 @@ async function auditAuth(userId: number, action: string, detail?: string) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  basePath:  '/v2/api/auth',
   secret:    process.env.NEXTAUTH_SECRET,
   session:   { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: {
-    signIn: '/v2/login',
-    error:  '/v2/login',
+    signIn: '/login',
+    error:  '/login',
   },
   providers: [
     Credentials({
