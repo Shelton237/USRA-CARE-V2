@@ -39,6 +39,19 @@ export async function POST(req: NextRequest) {
       groups.get(key)!.push(m)
     }
 
+    const overtimeAgg = await prisma.overtimeRecord.groupBy({
+      by: ['missionId'],
+      where: {
+        missionId: { in: missions.map(m => m.id) },
+        status: 'validated',
+        date: { gte: new Date(`${period}-01`), lt: new Date(`${period}-31`) },
+      },
+      _sum: { amount: true, hours: true },
+    })
+    const overtimeByMission = new Map(
+      overtimeAgg.map(o => [o.missionId, { amount: o._sum.amount ?? 0, hours: o._sum.hours ?? 0 }])
+    )
+
     const previews: any[] = []
 
     for (const [, groupMissions] of groups) {
@@ -51,7 +64,7 @@ export async function POST(req: NextRequest) {
       const dueDate = new Date(periodDate)
       dueDate.setDate(dueDate.getDate() + (first.client.paymentTermsDays ?? 30))
 
-      const lines = groupMissions.map(mission => {
+      const lines = groupMissions.flatMap(mission => {
         const att = mission.attendance[0]
         const daysWorked = att?.daysWorked ?? mission.prorataBase
         const prorataCoef = daysWorked / (mission.prorataBase || 30)
@@ -72,7 +85,7 @@ export async function POST(req: NextRequest) {
           description = `Mise à disposition — ${cand} (${daysWorked}j/${mission.prorataBase}j)`
         }
 
-        return {
+        const missionLines: any[] = [{
           missionId: mission.id,
           candidateId: mission.candidateId,
           description,
@@ -81,7 +94,23 @@ export async function POST(req: NextRequest) {
           totalHT: Math.round(unitPrice),
           daysWorked,
           prorataCoef,
+        }]
+
+        const overtime = overtimeByMission.get(mission.id)
+        if (overtime && overtime.amount > 0) {
+          missionLines.push({
+            missionId: mission.id,
+            candidateId: mission.candidateId,
+            description: `Heures sup. — ${cand} (${overtime.hours}h, ${period})`,
+            quantity: 1,
+            unitPrice: Math.round(overtime.amount),
+            totalHT: Math.round(overtime.amount),
+            daysWorked: null,
+            prorataCoef: null,
+          })
         }
+
+        return missionLines
       })
 
       const subtotalHT = lines.reduce((s, l) => s + l.totalHT, 0)
