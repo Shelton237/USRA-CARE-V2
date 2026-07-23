@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { PageHeader, Btn, Modal, Field, Card, FilterSelect } from '@/components/ui'
+import { PageHeader, Btn, Modal, Field, Card, FilterSelect, SearchBox } from '@/components/ui'
 import { useAppStore } from '@/store/app'
 import { useSession } from 'next-auth/react'
 import { fmtDate } from '@/lib/utils'
@@ -611,8 +611,13 @@ export function PayrollsPage() {
   const canGenerate = sessionStatus === 'authenticated' && role !== 'operator'
   const countryQ = adminCountryFilter !== 'all' ? '?countryId=' + adminCountryFilter : ''
 
-  const [statusF, setStatusF]     = useState('all')
-  const [periodF, setPeriodF]     = useState('all')
+  const [statusF, setStatusF]       = useState('all')
+  const [search, setSearch]         = useState('')
+  const [granularity, setGranularity] = useState('mois')
+  const [periodValue, setPeriodValue] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
   const [creating, setCreating]     = useState(false)
   const [generating, setGenerating] = useState(false)
   const [selectedId, setSelectedId]   = useState<number | null>(null)
@@ -630,16 +635,36 @@ export function PayrollsPage() {
   const all: any[]      = data?.data ?? []
   const missions: any[] = missionsData?.data ?? []
 
-  const periods = [...new Set(all.map((p: any) => p.period as string))].sort().reverse()
-  const periodOpts = [
-    { value: 'all', label: 'Toutes périodes' },
-    ...periods.map(p => ({ value: p, label: getPeriodInfo(p).label })),
-  ]
+  const years = [...new Set(all.map((p: any) => p.period?.slice(0, 4)).filter(Boolean))].sort().reverse()
 
-  const payrolls = all.filter((p: any) =>
-    (statusF === 'all' || p.status === statusF) &&
-    (periodF === 'all' || p.period === periodF)
-  )
+  function getWeekBounds(d: Date) {
+    const day = d.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    const mon = new Date(d); mon.setDate(d.getDate() + diff); mon.setHours(0,0,0,0)
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 7)
+    return { mon, sun }
+  }
+
+  const payrolls = all.filter((p: any) => {
+    if (statusF !== 'all' && p.status !== statusF) return false
+    const name = `${p.candidate?.firstName ?? ''} ${p.candidate?.lastName ?? ''}`.toLowerCase()
+    if (search && !name.includes(search.toLowerCase())) return false
+    if (granularity === 'mois' && periodValue) {
+      if (p.period !== periodValue) return false
+    } else if (granularity === 'annee' && periodValue) {
+      if (!p.period?.startsWith(periodValue)) return false
+    } else if ((granularity === 'jour' || granularity === 'semaine') && periodValue && p.createdAt) {
+      const created = new Date(p.createdAt)
+      if (granularity === 'jour') {
+        if (created.toISOString().slice(0, 10) !== periodValue) return false
+      } else {
+        const ref = new Date(periodValue)
+        const { mon, sun } = getWeekBounds(ref)
+        if (created < mon || created >= sun) return false
+      }
+    }
+    return true
+  })
 
   const refresh = () => qc.refetchQueries({ queryKey: ['payrolls'] })
 
@@ -678,9 +703,45 @@ export function PayrollsPage() {
         }
       />
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap items-center">
+        <SearchBox value={search} onChange={setSearch} placeholder="Rechercher un employé..." />
         <FilterSelect value={statusF} onChange={setStatusF} options={STATUS_OPTS} />
-        <FilterSelect value={periodF} onChange={setPeriodF} options={periodOpts} />
+        <FilterSelect
+          value={granularity}
+          onChange={v => {
+            setGranularity(v)
+            const d = new Date()
+            if (v === 'mois') setPeriodValue(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
+            else if (v === 'annee') setPeriodValue(String(d.getFullYear()))
+            else setPeriodValue(d.toISOString().slice(0,10))
+          }}
+          options={[
+            { value: 'tous',    label: 'Toutes périodes' },
+            { value: 'jour',    label: 'Jour' },
+            { value: 'semaine', label: 'Semaine' },
+            { value: 'mois',    label: 'Mois' },
+            { value: 'annee',   label: 'Année' },
+          ]}
+        />
+        {granularity === 'jour' && (
+          <input type="date" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400" />
+        )}
+        {granularity === 'semaine' && (
+          <input type="date" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400"
+            title="Sélectionner un jour — tous les bulletins de la même semaine seront affichés" />
+        )}
+        {granularity === 'mois' && (
+          <input type="month" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400" />
+        )}
+        {granularity === 'annee' && (
+          <select value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-teal-400">
+            {years.map((y: string) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
       </div>
 
       <Card noPad>

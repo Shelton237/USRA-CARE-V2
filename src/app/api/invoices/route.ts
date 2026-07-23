@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
         client: { select: { name: true } },
         country: { select: { name: true, symbol: true } },
         payments: { select: { amount: true } },
-        _count: { select: { lines: true } },
+        _count: { select: { lines: true, relances: true } },
       },
       orderBy: { date: 'desc' },
     })

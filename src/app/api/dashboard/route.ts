@@ -26,6 +26,8 @@ export async function GET(req: NextRequest) {
       pipeline,
       invoicesByCountry,
       paidInvoicesByCountry,
+      paymentsByCountry,
+      marginsByCountry,
     ] = await Promise.all([
       prisma.attendanceRecord.count({ where: { ...scope, status: 'pending' } }),
       prisma.overtimeRecord.count({ where: { ...scope, status: 'pending' } }),
@@ -73,6 +75,16 @@ export async function GET(req: NextRequest) {
         where: { ...scope, status: 'paid' },
         _sum: { total: true },
       }),
+      prisma.payment.groupBy({
+        by: ['countryId'],
+        where: scope.countryId ? { invoice: { countryId: scope.countryId } } : {},
+        _sum: { amount: true },
+      }),
+      prisma.mission.groupBy({
+        by: ['countryId'],
+        where: { ...scope, status: 'active' },
+        _sum: { clientRate: true, netSalary: true },
+      }),
     ])
 
     // Trésorerie par pays : entrées manuelles + factures payées
@@ -101,7 +113,19 @@ export async function GET(req: NextRequest) {
       return { ...s, count, pct: Math.round((count / total) * 100) }
     })
 
-    const margin = (marginAgg._sum.clientRate ?? 0) - (marginAgg._sum.netSalary ?? 0)
+    const marginLocal = (marginAgg._sum.clientRate ?? 0) - (marginAgg._sum.netSalary ?? 0)
+
+    // Convert Encaisse and Margin to EUR for the global KPI
+    const totalEncaisseEur = countries.reduce((sum: number, c: any) => {
+      const enc = paymentsByCountry.find((p: any) => p.countryId === c.id)?._sum?.amount ?? 0
+      return sum + Math.round(enc * (c.exchangeToEur ?? 1))
+    }, 0)
+
+    const marginEur = countries.reduce((sum: number, c: any) => {
+      const margEntry = marginsByCountry.find((m: any) => m.countryId === c.id)
+      const localMargin = (margEntry?._sum?.clientRate ?? 0) - (margEntry?._sum?.netSalary ?? 0)
+      return sum + Math.round(localMargin * (c.exchangeToEur ?? 1))
+    }, 0)
 
     // CA facturé par pays (hors brouillons/annulés)
     const caByCountry = countries.map((c: any) => {
@@ -116,10 +140,16 @@ export async function GET(req: NextRequest) {
     const totalCAEur = caByCountry.reduce((s: number, c: any) => s + c.totalCAEur, 0)
     // Pour les non-admin : le scope est déjà filtré par pays → on retourne le montant local brut
     const totalCALocal = invoiceAgg._sum.total ?? 0
+    const totalEncaisseLocal = paymentAgg._sum.amount ?? 0
 
     return ok({
       counters: { attendance: attendancePending, overtime: overtimePending, advances: advancesPending, payrolls: payrollsPending, invoices: invoicesOverdue, complaints: complaintsOpen, trialEnding },
-      stats: { candidates, candidatesAvail, missions, allMissions, totalCA: totalCALocal, totalCAEur, totalEncaisse: paymentAgg._sum.amount ?? 0, margin },
+      stats: {
+        candidates, candidatesAvail, missions, allMissions,
+        totalCA: totalCALocal, totalCAEur,
+        totalEncaisse: totalEncaisseLocal, totalEncaisseEur,
+        margin: marginLocal, marginEur
+      },
       treasury,
       caByCountry,
       pipeline: pipelineData,

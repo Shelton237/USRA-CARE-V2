@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
+import { sendMail } from '@/lib/mailer'
 
 export async function GET(req: NextRequest) {
   try {
@@ -58,6 +59,55 @@ export async function POST(req: NextRequest) {
       include: { country: true, office: true },
     })
     const { password: _, ...safeUser } = user
+
+    const roleLabel: Record<string, string> = { admin: 'Administrateur', dg: 'Directeur Général', operator: 'Opérateur' }
+    const appUrl = process.env.NEXTAUTH_URL?.replace('/v2', '') ?? 'https://usra-care.com/v2'
+    void sendMail({
+      to: data.email,
+      subject: 'Bienvenue sur USRA-CARE Backoffice — Vos paramètres de connexion',
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1E293B">
+          <div style="background:#0D9488;padding:24px 32px;border-radius:8px 8px 0 0">
+            <h1 style="color:#fff;margin:0;font-size:22px">USRA CARE</h1>
+            <p style="color:#CCFBF1;margin:4px 0 0;font-size:13px">Backoffice RH</p>
+          </div>
+          <div style="padding:32px;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 8px 8px">
+            <p style="margin:0 0 16px">Bonjour <strong>${data.firstName} ${data.lastName}</strong>,</p>
+            <p style="margin:0 0 24px;color:#475569">
+              Votre compte a été créé sur la plateforme <strong>USRA-CARE Backoffice</strong>.
+              Voici vos paramètres de connexion :
+            </p>
+            <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:8px;padding:20px 24px;margin:0 0 24px">
+              <table style="width:100%;border-collapse:collapse">
+                <tr>
+                  <td style="padding:6px 0;color:#64748B;font-size:13px;width:120px">Rôle</td>
+                  <td style="padding:6px 0;font-weight:600;font-size:13px">${roleLabel[data.role] ?? data.role}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;color:#64748B;font-size:13px">Identifiant</td>
+                  <td style="padding:6px 0;font-weight:600;font-size:13px">${data.email}</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;color:#64748B;font-size:13px">Mot de passe</td>
+                  <td style="padding:6px 0;font-weight:600;font-size:13px;font-family:monospace;letter-spacing:1px">${password}</td>
+                </tr>
+              </table>
+            </div>
+            <a href="${appUrl}/login"
+              style="display:inline-block;background:#0D9488;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
+              Se connecter →
+            </a>
+            <p style="margin:24px 0 0;font-size:12px;color:#94A3B8">
+              Pour des raisons de sécurité, nous vous recommandons de changer votre mot de passe dès votre première connexion.
+            </p>
+          </div>
+          <p style="text-align:center;font-size:11px;color:#CBD5E1;margin:16px 0 0">
+            USRA CARE · ${user.country?.name ?? ''} · notifications@usra-care.com
+          </p>
+        </div>
+      `,
+    }).catch(mailErr => console.error('Mail creation user failed:', mailErr))
+
     return ok(safeUser, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

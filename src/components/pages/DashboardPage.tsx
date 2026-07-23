@@ -69,8 +69,10 @@ export function DashboardPage() {
   const selectedCtry   = adminCountryFilter !== 'all' ? countriesData.find((c: any) => String(c.id) === adminCountryFilter) : null
   
   const currency       = isGlobalView ? '€' : (selectedCtry?.symbol ?? (session?.user as any)?.countrySymbol ?? '€')
-  // Pour la vue globale (admin) : CA en EUR converti ; pour un pays spécifique : montant local brut
+  // Pour la vue globale (admin) : montants en EUR convertis ; pour un pays spécifique : montants locaux bruts
   const displayCA      = isGlobalView ? (stats.totalCAEur ?? 0) : (stats.totalCA ?? 0)
+  const displayEncaisse = isGlobalView ? (stats.totalEncaisseEur ?? 0) : (stats.totalEncaisse ?? 0)
+  const displayMargin  = isGlobalView ? (stats.marginEur ?? 0) : (stats.margin ?? 0)
 
   const alerts = [
     { count: counters.overtime    ?? 0, label: 'Heures sup à valider', page: 'overtime',   color: 'warning', icon: Clock },
@@ -113,8 +115,8 @@ export function DashboardPage() {
         <KpiCard label="Candidats"       icon={Users}       color="#0D9488" value={stats.candidates ?? 0}              sub={`${stats.candidatesAvail ?? 0} disponible${(stats.candidatesAvail ?? 0) !== 1 ? 's' : ''}`} onClick={() => setPage('candidates')} />
         <KpiCard label="Missions actives" icon={Briefcase}   color="#3B82F6" value={stats.missions ?? 0}                sub={`${stats.allMissions ?? 0} au total`}                                                        onClick={() => setPage('missions')} />
         <KpiCard label="CA Facturé"      icon={Receipt}     color="#D4A437" value={fmt(displayCA, currency)}                                                                                                          onClick={() => setPage('invoices')} />
-        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, displayCA)}% du CA`}                                   onClick={() => setPage('payments')} />
-        <KpiCard label="Marge active"    icon={TrendingUp}  color="#7C3AED" value={fmt(stats.margin ?? 0, currency)}                                                                                                     onClick={() => setPage('missions')} />
+        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(displayEncaisse, currency)}      sub={`${pct(displayEncaisse, displayCA)}% du CA`}                                   onClick={() => setPage('payments')} />
+        <KpiCard label="Marge active"    icon={TrendingUp}  color="#7C3AED" value={fmt(displayMargin, currency)}                                                                                                     onClick={() => setPage('missions')} />
       </div>
 
       {/* ── Trésorerie ──────────────────────────────────────────────────── */}

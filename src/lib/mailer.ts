@@ -4,10 +4,12 @@ let transporter: nodemailer.Transporter | null = null
 
 function getTransporter() {
   if (!transporter) {
+    const port = Number(process.env.MAIL_PORT ?? 587)
     transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
-      port: Number(process.env.MAIL_PORT ?? 465),
-      secure: (process.env.MAIL_ENCRYPTION ?? 'ssl') === 'ssl',
+      port,
+      secure: port === 465,
+      requireTLS: port === 587,
       auth: { user: process.env.MAIL_USERNAME, pass: process.env.MAIL_PASSWORD },
     })
   }

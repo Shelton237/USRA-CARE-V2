@@ -7,7 +7,7 @@ import {
 import { useAppStore } from '@/store/app'
 import { useSession } from 'next-auth/react'
 import { fmt, fmtDate } from '@/lib/utils'
-import { Plus, Zap, Printer, Mail } from 'lucide-react'
+import { Plus, Zap, Printer, Mail, Bell, Clock } from 'lucide-react'
 import Image from 'next/image'
 
 const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -62,6 +62,11 @@ function InvoiceDetailModal({ id, onClose, canEdit, onEdit }: { id: number; onCl
   const [acompteModal, setAcompteModal] = useState(false)
   const [acompteForm, setAcompteForm] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'cash' })
   const [savingAcompte, setSavingAcompte] = useState(false)
+  const [relanceModal, setRelanceModal] = useState(false)
+  const [relanceTo, setRelanceTo] = useState('')
+  const [relanceNote, setRelanceNote] = useState('')
+  const [sendingRelance, setSendingRelance] = useState(false)
+  const [showRelances, setShowRelances] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoice-detail', id],
@@ -81,6 +86,23 @@ function InvoiceDetailModal({ id, onClose, canEdit, onEdit }: { id: number; onCl
     showToast('Statut mis à jour')
     qc.refetchQueries({ queryKey: ['invoices'] })
     qc.refetchQueries({ queryKey: ['invoice-detail', id] })
+  }
+
+  const sendRelance = async () => {
+    if (!relanceTo.trim()) { showToast('Adresse email requise', 'error'); return }
+    setSendingRelance(true)
+    const res = await fetch(`${B}/api/invoices/${id}/relance`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: relanceTo.trim(), note: relanceNote.trim() || null }),
+    })
+    const json = await res.json()
+    setSendingRelance(false)
+    if (!json.success) { showToast(json.error ?? 'Erreur envoi relance', 'error'); return }
+    showToast(`Relance n°${json.data.relanceNum} envoyée`)
+    qc.refetchQueries({ queryKey: ['invoice-detail', id] })
+    qc.refetchQueries({ queryKey: ['invoices'] })
+    setRelanceModal(false)
+    setRelanceNote('')
   }
 
   const saveAcompte = async () => {
@@ -142,6 +164,18 @@ function InvoiceDetailModal({ id, onClose, canEdit, onEdit }: { id: number; onCl
         {['sent', 'partially_paid', 'overdue'].includes(inv.status) && (
           <Btn size="sm" variant="secondary" onClick={() => { setAcompteForm(p => ({ ...p, amount: inv.acompteAmount > 0 ? String(inv.acompteAmount) : '' })); setAcompteModal(true) }}>
             {(inv.acompteAmount ?? 0) > 0 ? 'Modifier acompte' : 'Enregistrer acompte'}
+          </Btn>
+        )}
+        {['sent', 'partially_paid', 'overdue'].includes(inv.status) && (
+          <Btn size="sm" variant="secondary" icon={<Bell size={13} />}
+            onClick={() => { setRelanceTo(client?.email ?? ''); setRelanceModal(true) }}>
+            Relance
+            {(inv.relances?.length ?? 0) > 0 && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: '#FEF3C7', color: '#D97706' }}>
+                {inv.relances.length}
+              </span>
+            )}
           </Btn>
         )}
         <Btn size="sm" variant="secondary" icon={<Mail size={13} />} onClick={() => { setEmailTo(client?.email ?? ''); setEmailModal(true) }}>
@@ -301,6 +335,61 @@ function InvoiceDetailModal({ id, onClose, canEdit, onEdit }: { id: number; onCl
           </div>
         </div>
       </div>
+
+      {/* Historique relances */}
+      {(inv.relances?.length ?? 0) > 0 && (
+        <div className="mt-4 border border-amber-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setShowRelances(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-2.5 bg-amber-50 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition-colors">
+            <span className="flex items-center gap-1.5">
+              <Clock size={13} />
+              {inv.relances.length} relance(s) envoyée(s)
+            </span>
+            <span>{showRelances ? '▲' : '▼'}</span>
+          </button>
+          {showRelances && (
+            <div className="divide-y divide-amber-100">
+              {inv.relances.map((r: any, i: number) => (
+                <div key={r.id} className="px-4 py-2.5 flex items-start justify-between bg-white">
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-700">Relance n°{inv.relances.length - i}</span>
+                    <span className="ml-2 text-[11px] text-slate-500">→ {r.to}</span>
+                    {r.note && <div className="text-[11px] text-slate-400 mt-0.5 italic">{r.note}</div>}
+                  </div>
+                  <span className="text-[10px] text-slate-400 whitespace-nowrap ml-3">
+                    {new Date(r.sentAt).toLocaleDateString('fr-FR')} {new Date(r.sentAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {relanceModal && (
+        <Modal title={`Envoyer une relance — ${inv.reference}`} onClose={() => setRelanceModal(false)} size="sm">
+          <div className="space-y-3">
+            {(inv.relances?.length ?? 0) > 0 && (
+              <div className="p-2 rounded-lg text-xs" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309' }}>
+                {inv.relances.length} relance(s) déjà envoyée(s) — dernière le {new Date(inv.relances[0].sentAt).toLocaleDateString('fr-FR')}
+              </div>
+            )}
+            <Field label="Destinataire *" type="email" value={relanceTo} onChange={setRelanceTo} />
+            <Field label="Note interne (optionnel)" value={relanceNote} onChange={setRelanceNote}
+              placeholder="ex: appel téléphonique préalable..." textarea />
+            <div className="p-2.5 rounded-lg text-xs text-slate-500" style={{ background: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+              Un email de relance avec la facture PDF en pièce jointe sera envoyé au destinataire.
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Btn size="sm" variant="secondary" onClick={() => setRelanceModal(false)}>Annuler</Btn>
+              <Btn size="sm" onClick={sendRelance} disabled={sendingRelance}>
+                {sendingRelance ? 'Envoi...' : 'Envoyer la relance'}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {acompteModal && (
         <Modal title="Enregistrer un acompte" onClose={() => setAcompteModal(false)} size="sm">
@@ -671,6 +760,11 @@ export function InvoicesPage() {
   const [creating, setCreating] = useState(false)
   const [editingInvoice, setEditingInvoice] = useState<any>(null)
   const [generating, setGenerating] = useState(false)
+  const [granularity, setGranularity] = useState('tous')
+  const [periodValue, setPeriodValue] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const canEdit = (session?.user as any)?.role !== 'operator'
 
@@ -681,9 +775,31 @@ export function InvoicesPage() {
         .then(r => r.json()),
   })
 
-  const invoices: any[] = (data?.data ?? []).filter((i: any) =>
-    !search || `${i.reference} ${i.client?.name ?? ''}`.toLowerCase().includes(search.toLowerCase())
-  )
+  function getWeekBounds(d: Date) {
+    const day = d.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    const mon = new Date(d); mon.setDate(d.getDate() + diff); mon.setHours(0,0,0,0)
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 7)
+    return { mon, sun }
+  }
+
+  const invoices: any[] = (data?.data ?? []).filter((i: any) => {
+    if (search && !`${i.reference} ${i.client?.name ?? ''}`.toLowerCase().includes(search.toLowerCase())) return false
+    if (granularity !== 'tous' && i.date) {
+      const d = new Date(i.date)
+      if (granularity === 'jour' && periodValue) {
+        if (d.toISOString().slice(0, 10) !== periodValue) return false
+      } else if (granularity === 'semaine' && periodValue) {
+        const { mon, sun } = getWeekBounds(new Date(periodValue))
+        if (d < mon || d >= sun) return false
+      } else if (granularity === 'mois' && periodValue) {
+        if (`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` !== periodValue) return false
+      } else if (granularity === 'annee' && periodValue) {
+        if (String(d.getFullYear()) !== periodValue) return false
+      }
+    }
+    return true
+  })
 
   const cols = [
     {
@@ -713,6 +829,16 @@ export function InvoicesPage() {
     },
     { key: 'status', label: 'Statut', render: (r: any) => <InvBadge status={r.status} /> },
     {
+      key: 'relances', label: 'Relances', render: (r: any) => (
+        r._count?.relances > 0
+          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+              style={{ background: '#FEF3C7', color: '#D97706' }}>
+              <Bell size={10} /> {r._count.relances}
+            </span>
+          : <span className="text-slate-300 text-xs">—</span>
+      ),
+    },
+    {
       key: 'actions', label: '', align: 'right' as const,
       render: (r: any) => (
         <div onClick={e => e.stopPropagation()}>
@@ -729,9 +855,44 @@ export function InvoicesPage() {
         subtitle={`${invoices.length} facture(s)`}
         actions={
           <>
-            <SearchBox value={search} onChange={setSearch} />
+            <SearchBox value={search} onChange={setSearch} placeholder="Référence, client..." />
             <FilterSelect value={statusF} onChange={setStatusF} options={STATUS_OPTS} />
             <FilterSelect value={typeF} onChange={setTypeF} options={TYPE_OPTS} />
+            <FilterSelect
+              value={granularity}
+              onChange={v => {
+                setGranularity(v)
+                const d = new Date()
+                if (v === 'mois') setPeriodValue(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
+                else if (v === 'annee') setPeriodValue(String(d.getFullYear()))
+                else setPeriodValue(d.toISOString().slice(0,10))
+              }}
+              options={[
+                { value: 'tous',    label: 'Toutes périodes' },
+                { value: 'jour',    label: 'Jour' },
+                { value: 'semaine', label: 'Semaine' },
+                { value: 'mois',    label: 'Mois' },
+                { value: 'annee',   label: 'Année' },
+              ]}
+            />
+            {granularity === 'jour' && (
+              <input type="date" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400" />
+            )}
+            {granularity === 'semaine' && (
+              <input type="date" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                title="Choisir un jour — toute la semaine sera affichée"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400" />
+            )}
+            {granularity === 'mois' && (
+              <input type="month" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-400" />
+            )}
+            {granularity === 'annee' && (
+              <input type="number" value={periodValue} onChange={e => setPeriodValue(e.target.value)}
+                min="2020" max="2099" placeholder="2026"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-700 w-24 focus:outline-none focus:ring-2 focus:ring-teal-400" />
+            )}
             <Btn variant="purple" icon={<Zap size={13} color="#fff" />} onClick={() => setGenerating(true)}>
               Générer auto période
             </Btn>

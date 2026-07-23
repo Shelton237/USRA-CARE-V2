@@ -21,6 +21,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         },
         lines: true,
         payments: { orderBy: { date: 'desc' } },
+        relances: { orderBy: { sentAt: 'desc' } },
       },
     })
     if (!invoice) return err('Introuvable', 404)

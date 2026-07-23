@@ -85,7 +85,7 @@ export function computePayrollFromNet(
     if (Math.abs(net - proratedNet) < 1) break
     if (net < proratedNet) lo = gross; else hi = gross
   }
-  gross = Math.round(gross)
+  gross = Math.floor(gross)
 
   const employeeContribs = empContribs.map(c => ({ ...c, amount: calcContribution(c.value, c.mode, gross, c.enabled) }))
   const employerContribs = emprContribs.map(c => ({ ...c, amount: calcContribution(c.value, c.mode, gross, c.enabled) }))

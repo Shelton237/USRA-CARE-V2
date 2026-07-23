@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">USRA CARE</string>
+    <string name="title_activity_main">USRA CARE</string>
+    <string name="package_name">com.usracare.backoffice</string>
+    <string name="custom_url_scheme">com.usracare.backoffice</string>
+</resources>

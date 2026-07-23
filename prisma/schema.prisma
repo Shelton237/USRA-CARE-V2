@@ -446,10 +446,22 @@ model Invoice {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  country  Country       @relation(fields: [countryId], references: [id])
-  client   Client        @relation(fields: [clientId], references: [id])
-  lines    InvoiceLine[]
-  payments Payment[]
+  country   Country          @relation(fields: [countryId], references: [id])
+  client    Client           @relation(fields: [clientId], references: [id])
+  lines     InvoiceLine[]
+  payments  Payment[]
+  relances  InvoiceRelance[]
+}
+
+// ─── RELANCES FACTURES ─────────────────────────────────────────────────
+model InvoiceRelance {
+  id        Int      @id @default(autoincrement())
+  invoiceId Int
+  to        String
+  sentAt    DateTime @default(now())
+  note      String?
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }
 
 // ─── LIGNES DE FACTURE ────────────────────────────────────────────────
