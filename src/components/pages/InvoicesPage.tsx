@@ -476,10 +476,34 @@ function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoi
     lines: (invoice?.lines ?? []).map((l: any) => ({
       description: l.description, quantity: l.quantity,
       unitPrice: l.unitPrice, totalHT: l.totalHT,
-    })) as { description: string; quantity: number; unitPrice: number; totalHT: number }[],
+      overtimeRecordId: l.overtimeRecords?.[0]?.id as number | undefined,
+    })) as { description: string; quantity: number; unitPrice: number; totalHT: number; overtimeRecordId?: number }[],
   })
 
   const selectedClient = clients.find((c: any) => c.id === Number(f.clientId))
+
+  const { data: overtimeData } = useQuery({
+    queryKey: ['billable-overtime', f.clientId],
+    queryFn: () => fetch(`${B}/api/overtime?clientId=${f.clientId}&billable=1`).then(r => r.json()),
+    enabled: !!f.clientId,
+  })
+  const billableOvertime: any[] = (overtimeData?.data ?? []).filter(
+    (o: any) => !f.lines.some(l => l.overtimeRecordId === o.id)
+  )
+
+  const addOvertimeLine = (o: any) => {
+    const cand = `${o.candidate.firstName} ${o.candidate.lastName}`
+    setF(prev => ({
+      ...prev,
+      lines: [...prev.lines, {
+        description: `Heures sup. — ${cand} (${o.hours}h, ${o.date.slice(0, 10)})`,
+        quantity: 1,
+        unitPrice: Math.round(o.amount),
+        totalHT: Math.round(o.amount),
+        overtimeRecordId: o.id,
+      }],
+    }))
+  }
 
   useEffect(() => {
     if (selectedClient?.paymentTermsDays && f.date && !isEdit) {
@@ -552,6 +576,26 @@ function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoi
         <Field label="Période" value={f.period} onChange={v => setF(p => ({ ...p, period: v }))} placeholder="2026-06" />
         <Field label="TVA (%)" value={f.vatRate} onChange={v => setF(p => ({ ...p, vatRate: Number(v) }))} type="number" suffix="%" />
       </div>
+
+      {/* Heures sup facturables */}
+      {!!f.clientId && billableOvertime.length > 0 && (
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wide mb-2">
+            Heures sup. validées non facturées ({billableOvertime.length})
+          </div>
+          <div className="space-y-1.5">
+            {billableOvertime.map((o: any) => (
+              <div key={o.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
+                <div className="text-xs text-slate-700">
+                  <span className="font-semibold">{o.candidate.firstName} {o.candidate.lastName}</span>
+                  <span className="text-slate-400 ml-2">{o.hours}h · {fmtDate(o.date)} · {fmt(o.amount, selectedClient?.country?.symbol)}</span>
+                </div>
+                <Btn size="sm" variant="secondary" onClick={() => addOvertimeLine(o)}>+ Ajouter</Btn>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Lines */}
       <div className="flex justify-between items-center mb-2 mt-1">

@@ -6,9 +6,17 @@ export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
     const scope = scopeFilter(session)
-    const missionId = new URL(req.url).searchParams.get('missionId') ?? ''
+    const { searchParams } = new URL(req.url)
+    const missionId = searchParams.get('missionId') ?? ''
+    const clientId  = searchParams.get('clientId') ?? ''
+    const billable  = searchParams.get('billable') === '1'
     const records = await prisma.overtimeRecord.findMany({
-      where: { ...scope, ...(missionId && { missionId: Number(missionId) }) },
+      where: {
+        ...scope,
+        ...(missionId && { missionId: Number(missionId) }),
+        ...(clientId  && { mission: { clientId: Number(clientId) } }),
+        ...(billable  && { status: 'validated', invoiceLineId: null }),
+      },
       include: {
         candidate: { select: { firstName: true, lastName: true } },
         mission: { include: { client: { select: { name: true } } } },

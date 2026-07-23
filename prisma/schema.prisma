@@ -353,13 +353,15 @@ model OvertimeRecord {
   createdById   Int?
   validatedById Int?
   validatedAt   DateTime?
+  invoiceLineId Int?
   createdAt     DateTime  @default(now())
 
-  country     Country   @relation(fields: [countryId], references: [id])
-  mission     Mission   @relation(fields: [missionId], references: [id])
-  candidate   Candidate @relation(fields: [candidateId], references: [id])
-  createdBy   User?     @relation("OvertimeCreatedBy", fields: [createdById], references: [id])
-  validatedBy User?     @relation("OvertimeValidatedBy", fields: [validatedById], references: [id])
+  country     Country      @relation(fields: [countryId], references: [id])
+  mission     Mission      @relation(fields: [missionId], references: [id])
+  candidate   Candidate    @relation(fields: [candidateId], references: [id])
+  createdBy   User?        @relation("OvertimeCreatedBy", fields: [createdById], references: [id])
+  validatedBy User?        @relation("OvertimeValidatedBy", fields: [validatedById], references: [id])
+  invoiceLine InvoiceLine? @relation(fields: [invoiceLineId], references: [id], onDelete: SetNull)
 }
 
 // ─── AVANCES SUR SALAIRE ──────────────────────────────────────────────
@@ -477,8 +479,9 @@ model InvoiceLine {
   daysWorked  Int?
   prorataCoef Float?
 
-  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  mission Mission? @relation(fields: [missionId], references: [id])
+  invoice         Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  mission         Mission?         @relation(fields: [missionId], references: [id])
+  overtimeRecords OvertimeRecord[]
 }
 
 // ─── PAIEMENTS ────────────────────────────────────────────────────────

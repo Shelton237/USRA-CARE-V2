@@ -52,16 +52,30 @@ export async function POST(req: NextRequest) {
     })
     const reference = `${country?.invoicePrefix}-${invoiceYear}-${String(count + 1).padStart(4, '0')}`
 
+    const linesInput = (lines ?? []).map((l: any) => {
+      const { overtimeRecordId, ...rest } = l
+      return rest
+    })
+
     const invoice = await prisma.invoice.create({
       data: {
         ...invoiceData,
         date:    date    ? new Date(date)    : new Date(),
         dueDate: dueDate ? new Date(dueDate) : null,
         reference,
-        lines: lines?.length ? { create: lines } : undefined,
+        lines: linesInput.length ? { create: linesInput } : undefined,
       },
-      include: { lines: true },
+      include: { lines: { orderBy: { id: 'asc' } } },
     })
+
+    await Promise.all(
+      (lines ?? []).map((l: any, i: number) =>
+        l.overtimeRecordId
+          ? prisma.overtimeRecord.update({ where: { id: Number(l.overtimeRecordId) }, data: { invoiceLineId: invoice.lines[i].id } })
+          : Promise.resolve()
+      )
+    )
+
     return ok(invoice, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

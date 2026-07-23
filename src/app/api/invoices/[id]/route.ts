@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
             legalMention: true, symbol: true,
           },
         },
-        lines: true,
+        lines: { include: { overtimeRecords: { select: { id: true } } } },
         payments: { orderBy: { date: 'desc' } },
         relances: { orderBy: { sentAt: 'desc' } },
       },
@@ -49,17 +49,35 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json()
     const { lines, date, dueDate, reference, id: _id, ...data } = body
 
+    // Libère les heures sup liées aux anciennes lignes avant de les supprimer
+    // (la FK OvertimeRecord.invoiceLineId passe à onDelete: SetNull, donc pas d'échec ici,
+    // mais on le fait explicitement pour rester correct même si l'ordre de suppression changeait)
     await prisma.invoiceLine.deleteMany({ where: { invoiceId: id } })
+
+    const linesInput = (lines ?? []).map((l: any) => {
+      const { overtimeRecordId, ...rest } = l
+      return rest
+    })
+
     const updated = await prisma.invoice.update({
       where: { id },
       data: {
         ...data,
         date:    date    ? new Date(date)    : invoice.date,
         dueDate: dueDate ? new Date(dueDate) : null,
-        lines: lines?.length ? { create: lines } : undefined,
+        lines: linesInput.length ? { create: linesInput } : undefined,
       },
-      include: { lines: true },
+      include: { lines: { orderBy: { id: 'asc' } } },
     })
+
+    await Promise.all(
+      (lines ?? []).map((l: any, i: number) =>
+        l.overtimeRecordId
+          ? prisma.overtimeRecord.update({ where: { id: Number(l.overtimeRecordId) }, data: { invoiceLineId: updated.lines[i].id } })
+          : Promise.resolve()
+      )
+    )
+
     void logAudit(Number(session.user?.id), 'Modification', 'Factures', id)
     return ok(updated)
   } catch (e: any) {

@@ -39,18 +39,23 @@ export async function POST(req: NextRequest) {
       groups.get(key)!.push(m)
     }
 
-    const overtimeAgg = await prisma.overtimeRecord.groupBy({
-      by: ['missionId'],
+    const overtimeRecords = await prisma.overtimeRecord.findMany({
       where: {
         missionId: { in: missions.map(m => m.id) },
         status: 'validated',
+        invoiceLineId: null,
         date: { gte: new Date(`${period}-01`), lt: new Date(`${period}-31`) },
       },
-      _sum: { amount: true, hours: true },
+      select: { id: true, missionId: true, amount: true, hours: true },
     })
-    const overtimeByMission = new Map(
-      overtimeAgg.map(o => [o.missionId, { amount: o._sum.amount ?? 0, hours: o._sum.hours ?? 0 }])
-    )
+    const overtimeByMission = new Map<number, { amount: number; hours: number; ids: number[] }>()
+    for (const o of overtimeRecords) {
+      const cur = overtimeByMission.get(o.missionId) ?? { amount: 0, hours: 0, ids: [] }
+      cur.amount += o.amount
+      cur.hours += o.hours
+      cur.ids.push(o.id)
+      overtimeByMission.set(o.missionId, cur)
+    }
 
     const previews: any[] = []
 
@@ -107,6 +112,7 @@ export async function POST(req: NextRequest) {
             totalHT: Math.round(overtime.amount),
             daysWorked: null,
             prorataCoef: null,
+            overtimeRecordIds: overtime.ids,
           })
         }
 
@@ -154,9 +160,24 @@ export async function POST(req: NextRequest) {
       })
       const reference = `${country?.invoicePrefix ?? 'INV'}-${invoiceYear}-${String(count + 1).padStart(4, '0')}`
 
-      const invoice = await prisma.invoice.create({
-        data: { ...invoiceData, reference, lines: { create: lines } },
+      const linesInput = lines.map((l: any) => {
+        const { overtimeRecordIds, ...rest } = l
+        return rest
       })
+
+      const invoice = await prisma.invoice.create({
+        data: { ...invoiceData, reference, lines: { create: linesInput } },
+        include: { lines: { orderBy: { id: 'asc' } } },
+      })
+
+      await Promise.all(
+        lines.flatMap((l: any, i: number) =>
+          (l.overtimeRecordIds ?? []).map((oid: number) =>
+            prisma.overtimeRecord.update({ where: { id: oid }, data: { invoiceLineId: invoice.lines[i].id } })
+          )
+        )
+      )
+
       created.push(invoice)
     }
 
