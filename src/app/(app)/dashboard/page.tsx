@@ -14,12 +14,12 @@ import { ServicesPage }    from '@/components/pages/ServicesPage'
 import { AttendancePage }  from '@/components/pages/AttendancePage'
 import { OvertimePage }    from '@/components/pages/OvertimePage'
 import { AdvancesPage }    from '@/components/pages/AdvancesPage'
-import { PayrollsPage }    from '@/components/pages/PayrollsPage'
 import { PaymentsPage }    from '@/components/pages/PaymentsPage'
 import { CashPage }        from '@/components/pages/CashPage'
 import { EvaluationsPage } from '@/components/pages/EvaluationsPage'
 import { ComplaintsPage }  from '@/components/pages/ComplaintsPage'
 import { EquipmentPage }   from '@/components/pages/EquipmentPage'
+import { PayrollsPage }   from '@/components/pages/PayrollsPage'
 
 const GenericPage = ({ title }: { title: string }) => (
   <div className="fade-in flex items-center justify-center h-64">

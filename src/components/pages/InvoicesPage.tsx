@@ -7,7 +7,7 @@ import {
 import { useAppStore } from '@/store/app'
 import { useSession } from 'next-auth/react'
 import { fmt, fmtDate } from '@/lib/utils'
-import { Plus, Zap, Printer } from 'lucide-react'
+import { Plus, Zap, Printer, Mail } from 'lucide-react'
 import Image from 'next/image'
 
 const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -52,10 +52,16 @@ function TypeBadge({ type }: { type: string }) {
 
 // ─── Invoice Detail Modal ─────────────────────────────────────────────────────
 
-function InvoiceDetailModal({ id, onClose, canEdit }: { id: number; onClose: () => void; canEdit: boolean }) {
+function InvoiceDetailModal({ id, onClose, canEdit, onEdit }: { id: number; onClose: () => void; canEdit: boolean; onEdit: (inv: any) => void }) {
   const qc = useQueryClient()
   const { showToast } = useAppStore()
   const [acting, setActing] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [emailModal, setEmailModal] = useState(false)
+  const [emailTo, setEmailTo] = useState('')
+  const [acompteModal, setAcompteModal] = useState(false)
+  const [acompteForm, setAcompteForm] = useState({ amount: '', date: new Date().toISOString().slice(0, 10), method: 'cash' })
+  const [savingAcompte, setSavingAcompte] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoice-detail', id],
@@ -77,6 +83,35 @@ function InvoiceDetailModal({ id, onClose, canEdit }: { id: number; onClose: () 
     qc.refetchQueries({ queryKey: ['invoice-detail', id] })
   }
 
+  const saveAcompte = async () => {
+    if (!acompteForm.amount || Number(acompteForm.amount) <= 0) { showToast('Montant requis', 'error'); return }
+    setSavingAcompte(true)
+    const res = await fetch(`${B}/api/invoices/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set-acompte', acompteAmount: Number(acompteForm.amount), acompteDate: acompteForm.date, acompteMethod: acompteForm.method }),
+    })
+    const json = await res.json()
+    setSavingAcompte(false)
+    if (!json.success) { showToast(json.error ?? 'Erreur', 'error'); return }
+    showToast('Acompte enregistré')
+    qc.refetchQueries({ queryKey: ['invoices'] })
+    qc.refetchQueries({ queryKey: ['invoice-detail', id] })
+    setAcompteModal(false)
+  }
+
+  const sendByEmail = async () => {
+    if (!emailTo.trim()) { showToast('Adresse email requise', 'error'); return }
+    setSending(true)
+    const res = await fetch(`${B}/api/invoices/${id}/send-email`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: emailTo.trim() }),
+    })
+    const json = await res.json()
+    setSending(false)
+    if (!json.success) { showToast(json.error ?? "Erreur lors de l'envoi", 'error'); return }
+    showToast(`Facture envoyée à ${json.data.to}`)
+    setEmailModal(false)
+  }
+
   if (isLoading || !inv) {
     return (
       <Modal title="Facture" onClose={onClose} size="xl">
@@ -95,17 +130,30 @@ function InvoiceDetailModal({ id, onClose, canEdit }: { id: number; onClose: () 
     <Modal title={`Facture ${inv.reference}`} subtitle={client?.name} onClose={onClose} size="xl">
       {/* Actions */}
       <div className="flex justify-end gap-2 mb-4 flex-wrap no-print">
-        {canEdit && inv.status === 'draft' && (
+        {inv.status === 'draft' && (
+          <Btn size="sm" variant="secondary" onClick={() => onEdit(inv)}>Modifier</Btn>
+        )}
+        {inv.status === 'draft' && (
           <Btn size="sm" variant="success" onClick={() => doAction('mark-sent')} disabled={acting}>Émettre</Btn>
         )}
-        {canEdit && inv.status === 'sent' && (
+        {inv.status === 'sent' && (
           <Btn size="sm" variant="success" onClick={() => doAction('mark-paid')} disabled={acting}>Marquer payée</Btn>
         )}
-        <Btn size="sm" variant="secondary" icon={<Printer size={13} />} onClick={() => window.print()}>Imprimer</Btn>
+        {['sent', 'partially_paid', 'overdue'].includes(inv.status) && (
+          <Btn size="sm" variant="secondary" onClick={() => { setAcompteForm(p => ({ ...p, amount: inv.acompteAmount > 0 ? String(inv.acompteAmount) : '' })); setAcompteModal(true) }}>
+            {(inv.acompteAmount ?? 0) > 0 ? 'Modifier acompte' : 'Enregistrer acompte'}
+          </Btn>
+        )}
+        <Btn size="sm" variant="secondary" icon={<Mail size={13} />} onClick={() => { setEmailTo(client?.email ?? ''); setEmailModal(true) }}>
+          Envoyer par email
+        </Btn>
+        <Btn size="sm" variant="secondary" icon={<Printer size={13} />} onClick={() => window.open(`${B}/api/invoices/${id}/pdf`, '_blank')}>
+          Voir / Imprimer PDF
+        </Btn>
       </div>
 
       {/* Invoice document */}
-      <div id="print-area" className="p-6 bg-white rounded-lg border border-slate-200 print:border-0 print:rounded-none print:p-0 print:shadow-none">
+      <div className="p-6 bg-white rounded-lg border border-slate-200">
         {/* Header */}
         <div className="flex justify-between mb-6 pb-5" style={{ borderBottom: '3px solid #0D9488' }}>
           <div>
@@ -208,7 +256,21 @@ function InvoiceDetailModal({ id, onClose, canEdit }: { id: number; onClose: () 
               <span className="font-bold text-base text-slate-900">TOTAL TTC</span>
               <span className="font-extrabold text-xl" style={{ color: '#0D9488' }}>{fmt(inv.total, sym)}</span>
             </div>
-            {paidAmount > 0 && (
+            {(inv.acompteAmount ?? 0) > 0 && (
+              <>
+                <div className="flex justify-between py-1.5 px-2 text-sm mt-1 rounded" style={{ background: '#FFFBEB', borderBottom: '1px solid #FDE68A' }}>
+                  <span style={{ color: '#B45309' }} className="font-medium">
+                    Acompte reçu {inv.acompteDate ? `(${fmtDate(inv.acompteDate)})` : ''}
+                  </span>
+                  <span style={{ color: '#B45309' }} className="font-bold">−{fmt(inv.acompteAmount, sym)}</span>
+                </div>
+                <div className="flex justify-between py-2 mt-1" style={{ borderTop: '2px solid #0D9488' }}>
+                  <span className="font-bold text-base text-slate-900">NET À PAYER</span>
+                  <span className="font-extrabold text-xl" style={{ color: '#0D9488' }}>{fmt(inv.total - inv.acompteAmount, sym)}</span>
+                </div>
+              </>
+            )}
+            {paidAmount > 0 && (inv.acompteAmount ?? 0) === 0 && (
               <div className="flex justify-between py-1 text-xs mt-1">
                 <span className="text-slate-500">Encaissé</span>
                 <span className="text-teal-600 font-semibold">{fmt(paidAmount, sym)}</span>
@@ -239,16 +301,73 @@ function InvoiceDetailModal({ id, onClose, canEdit }: { id: number; onClose: () 
           </div>
         </div>
       </div>
+
+      {acompteModal && (
+        <Modal title="Enregistrer un acompte" onClose={() => setAcompteModal(false)} size="sm">
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500">
+              L'acompte sera déduit du total sur la facture PDF et enregistré comme encaissement.
+            </p>
+            {(inv.acompteAmount ?? 0) > 0 && (
+              <div className="p-2 rounded-lg text-xs" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309' }}>
+                Acompte existant : <strong>{fmt(inv.acompteAmount, sym)}</strong> — {fmtDate(inv.acompteDate)}
+              </div>
+            )}
+            <Field label="Montant *" type="number" value={acompteForm.amount} onChange={v => setAcompteForm(p => ({ ...p, amount: v }))} />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date *" type="date" value={acompteForm.date} onChange={v => setAcompteForm(p => ({ ...p, date: v }))} />
+              <Field label="Méthode" value={acompteForm.method} onChange={v => setAcompteForm(p => ({ ...p, method: v }))} options={[
+                { value: 'cash', label: 'Espèces' },
+                { value: 'mobile_money', label: 'Mobile Money' },
+                { value: 'bank_transfer', label: 'Virement bancaire' },
+                { value: 'cheque', label: 'Chèque' },
+              ]} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <Btn size="sm" variant="secondary" onClick={() => setAcompteModal(false)}>Annuler</Btn>
+              <Btn size="sm" onClick={saveAcompte} disabled={savingAcompte}>
+                {savingAcompte ? 'Enregistrement...' : 'Enregistrer'}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {emailModal && (
+        <Modal title="Envoyer la facture par email" onClose={() => setEmailModal(false)} size="sm">
+          <div className="space-y-3">
+            <p className="text-sm text-slate-500">
+              Facture <strong>{inv.reference}</strong> — {client?.name}
+            </p>
+            <Field
+              label="Adresse email du destinataire *"
+              type="email"
+              value={emailTo}
+              onChange={setEmailTo}
+            />
+            {!client?.email && (
+              <p className="text-xs text-amber-600">Ce client n'a pas d'email enregistré — renseigne-le ci-dessus.</p>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Btn size="sm" variant="secondary" onClick={() => setEmailModal(false)}>Annuler</Btn>
+              <Btn size="sm" onClick={sendByEmail} disabled={sending}>
+                {sending ? 'Envoi...' : "Confirmer l'envoi"}
+              </Btn>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Modal>
   )
 }
 
 // ─── Nouvelle Facture Modal ───────────────────────────────────────────────────
 
-function NouvelleFactureModal({ onClose }: { onClose: () => void }) {
+function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoice?: any }) {
   const qc = useQueryClient()
   const { showToast } = useAppStore()
   const [saving, setSaving] = useState(false)
+  const isEdit = !!invoice
 
   const { data: clientsData } = useQuery({
     queryKey: ['clients-for-invoices'],
@@ -258,17 +377,23 @@ function NouvelleFactureModal({ onClose }: { onClose: () => void }) {
 
   const today = new Date().toISOString().slice(0, 10)
   const [f, setF] = useState({
-    clientId: '', invoiceType: 'placement',
-    date: today, dueDate: '',
-    period: new Date().toISOString().slice(0, 7),
-    vatRate: 20, notes: '',
-    lines: [] as { description: string; quantity: number; unitPrice: number; totalHT: number }[],
+    clientId:    invoice ? String(invoice.clientId) : '',
+    invoiceType: invoice?.invoiceType ?? 'placement',
+    date:        invoice?.date ? invoice.date.slice(0, 10) : today,
+    dueDate:     invoice?.dueDate ? invoice.dueDate.slice(0, 10) : '',
+    period:      invoice?.period ?? new Date().toISOString().slice(0, 7),
+    vatRate:     invoice?.vatRate ?? 20,
+    notes:       invoice?.notes ?? '',
+    lines: (invoice?.lines ?? []).map((l: any) => ({
+      description: l.description, quantity: l.quantity,
+      unitPrice: l.unitPrice, totalHT: l.totalHT,
+    })) as { description: string; quantity: number; unitPrice: number; totalHT: number }[],
   })
 
   const selectedClient = clients.find((c: any) => c.id === Number(f.clientId))
 
   useEffect(() => {
-    if (selectedClient?.paymentTermsDays && f.date) {
+    if (selectedClient?.paymentTermsDays && f.date && !isEdit) {
       const d = new Date(f.date)
       d.setDate(d.getDate() + selectedClient.paymentTermsDays)
       setF(prev => ({ ...prev, dueDate: d.toISOString().slice(0, 10) }))
@@ -299,7 +424,7 @@ function NouvelleFactureModal({ onClose }: { onClose: () => void }) {
     setSaving(true)
     const payload = {
       clientId: Number(f.clientId),
-      countryId: selectedClient?.countryId,
+      countryId: selectedClient?.countryId ?? invoice?.countryId,
       invoiceType: f.invoiceType,
       date: f.date,
       dueDate: f.dueDate || null,
@@ -314,20 +439,20 @@ function NouvelleFactureModal({ onClose }: { onClose: () => void }) {
       autoGenerated: false,
       lines: f.lines,
     }
-    const res = await fetch(`${B}/api/invoices`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
+    const url    = isEdit ? `${B}/api/invoices/${invoice.id}` : `${B}/api/invoices`
+    const method = isEdit ? 'PUT' : 'POST'
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
     const json = await res.json()
     setSaving(false)
     if (!json.success) { showToast(json.error ?? 'Erreur', 'error'); return }
-    showToast('Facture créée')
+    showToast(isEdit ? 'Facture modifiée' : 'Facture créée')
     qc.refetchQueries({ queryKey: ['invoices'] })
+    if (isEdit) qc.refetchQueries({ queryKey: ['invoice-detail', invoice.id] })
     onClose()
   }
 
   return (
-    <Modal title="Nouvelle facture" onClose={onClose} size="xl">
+    <Modal title={isEdit ? `Modifier la facture` : 'Nouvelle facture'} onClose={onClose} size="xl">
       <div className="grid grid-cols-3 gap-3 mb-4">
         <Field label="Client" value={f.clientId} onChange={v => setF(p => ({ ...p, clientId: v }))} required
           options={[{ value: '', label: '— Choisir —' }, ...clients.map((c: any) => ({ value: String(c.id), label: c.name }))]} />
@@ -544,6 +669,7 @@ export function InvoicesPage() {
   const [typeF, setTypeF] = useState('all')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [creating, setCreating] = useState(false)
+  const [editingInvoice, setEditingInvoice] = useState<any>(null)
   const [generating, setGenerating] = useState(false)
 
   const canEdit = (session?.user as any)?.role !== 'operator'
@@ -623,9 +749,20 @@ export function InvoicesPage() {
       </Card>
 
       {selectedId !== null && (
-        <InvoiceDetailModal id={selectedId} onClose={() => setSelectedId(null)} canEdit={canEdit} />
+        <InvoiceDetailModal
+          id={selectedId}
+          onClose={() => setSelectedId(null)}
+          canEdit={canEdit}
+          onEdit={(inv) => { setEditingInvoice(inv); setSelectedId(null) }}
+        />
       )}
       {creating && <NouvelleFactureModal onClose={() => setCreating(false)} />}
+      {editingInvoice && (
+        <NouvelleFactureModal
+          invoice={editingInvoice}
+          onClose={() => setEditingInvoice(null)}
+        />
+      )}
       {generating && <GénérationAutoModal onClose={() => setGenerating(false)} />}
     </div>
   )

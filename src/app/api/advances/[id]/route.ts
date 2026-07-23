@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -19,7 +19,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         approvedAt:  new Date(),
       },
     })
-    void logAudit(Number(session.user?.id), action === 'approve' ? 'Approbation' : 'Rejet', 'Avances', id)
     return ok(advance)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
@@ -30,12 +29,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const { id: idStr } = await params
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
     await prisma.advance.delete({ where: { id } })
-    void logAudit(Number(session.user?.id), 'Suppression', 'Avances', id)
     return ok({ deleted: true })
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

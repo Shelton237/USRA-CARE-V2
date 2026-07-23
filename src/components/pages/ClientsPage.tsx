@@ -309,8 +309,8 @@ function ClientDetailModal({ client, countries, onClose, onEdit }: {
 
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
-function ClientForm({ client, countries, onClose, onSaved }: {
-  client?: any; countries: any[]; onClose: () => void; onSaved: () => void
+function ClientForm({ client, countries, onClose, onSaved, userCountryId, isOperator }: {
+  client?: any; countries: any[]; onClose: () => void; onSaved: () => void; userCountryId?: string; isOperator?: boolean
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -318,7 +318,7 @@ function ClientForm({ client, countries, onClose, onSaved }: {
 
   const [f, setF] = useState({
     type:             client?.type             ?? 'individual',
-    countryId:        client?.countryId        ? String(client.countryId) : '',
+    countryId:        client?.countryId        ? String(client.countryId) : (userCountryId ?? ''),
     officeId:         client?.officeId         ? String(client.officeId)  : '',
     name:             client?.name             ?? '',
     companyName:      client?.companyName      ?? '',
@@ -376,7 +376,7 @@ function ClientForm({ client, countries, onClose, onSaved }: {
         <div className="grid grid-cols-2 gap-3">
           <Field label="Type" value={f.type} onChange={u('type')} options={TYPE_OPTS} />
           <Field
-            label="Pays" value={f.countryId}
+            label="Pays" value={f.countryId} disabled={isOperator}
             onChange={v => setF(p => ({ ...p, countryId: v, officeId: '' }))}
             options={[{ value: '', label: 'Sélectionner...' }, ...countries.map(c => ({ value: String(c.id), label: c.name }))]}
           />
@@ -451,13 +451,13 @@ function ClientForm({ client, countries, onClose, onSaved }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ClientsPage() {
-  const { showToast, showConfirm, adminCountryFilter } = useAppStore()
+  const { showToast, showConfirm } = useAppStore()
   const { data: session, status: sessionStatus } = useSession()
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const countryQ = adminCountryFilter !== 'all' ? '?countryId=' + adminCountryFilter : ''
   const role = (session?.user?.role ?? 'operator') as string
-  const canEdit = sessionStatus === 'authenticated' && role !== 'operator'
+  const canCreate = sessionStatus === 'authenticated'
+  const canEdit   = sessionStatus === 'authenticated' && role !== 'operator'
 
   const [search, setSearch]     = useState('')
   const [typeF, setTypeF]       = useState('all')
@@ -466,8 +466,8 @@ export function ClientsPage() {
   const [editing, setEditing]   = useState<any>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', adminCountryFilter],
-    queryFn: () => fetch(`${B}/api/clients${countryQ}`).then(r => r.json()),
+    queryKey: ['clients'],
+    queryFn: () => fetch(`${B}/api/clients`).then(r => r.json()),
   })
   const { data: countriesData } = useQuery({
     queryKey: ['countries-list'],
@@ -504,7 +504,7 @@ export function ClientsPage() {
         actions={
           <div className="flex items-center gap-2">
             <SearchBox value={search} onChange={setSearch} placeholder="Nom..." />
-            {canEdit && (
+            {canCreate && (
               <Btn icon={<Plus size={14} />} onClick={() => setCreating(true)}>
                 Nouveau client
               </Btn>
@@ -582,11 +582,15 @@ export function ClientsPage() {
 
       {creating && (
         <ClientForm countries={countries} onClose={() => setCreating(false)}
-          onSaved={async () => { await refresh(); showToast('Client créé'); setCreating(false) }} />
+          onSaved={async () => { await refresh(); showToast('Client créé'); setCreating(false) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'} />
       )}
       {editing && (
         <ClientForm client={editing} countries={countries} onClose={() => setEditing(null)}
-          onSaved={async () => { await refresh(); showToast('Client modifié'); setEditing(null) }} />
+          onSaved={async () => { await refresh(); showToast('Client modifié'); setEditing(null) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'} />
       )}
       {viewing && (
         <ClientDetailModal

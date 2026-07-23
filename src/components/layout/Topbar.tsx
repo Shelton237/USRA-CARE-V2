@@ -15,7 +15,6 @@ export function Topbar({ notifications = [], countries = [] }: {
   const { toggleSidebar, adminCountryFilter, setAdminCountryFilter, setPage } = useAppStore()
   const [notifOpen, setNotifOpen] = useState(false)
   const isAdmin = session?.user?.role === 'admin'
-  const canSeeNotifs = session?.user?.role !== 'operator'
   const today = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
 
   return (
@@ -41,14 +40,14 @@ export function Topbar({ notifications = [], countries = [] }: {
       <div className="flex items-center gap-2">
         {isAdmin && countries.length > 0 && (
           <select value={adminCountryFilter} onChange={e => setAdminCountryFilter(e.target.value)}
-            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white text-slate-700 max-w-[130px] sm:max-w-none">
+            className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white text-slate-700">
             <option value="all">Tous les pays</option>
             {countries.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
           </select>
         )}
 
         {/* Bell */}
-        {canSeeNotifs && (<div className="relative">
+        <div className="relative">
           <button onClick={() => setNotifOpen(v => !v)}
             className="relative p-2 rounded-lg hover:bg-slate-100 transition-colors">
             <Bell size={18} className="text-slate-600" />
@@ -79,7 +78,7 @@ export function Topbar({ notifications = [], countries = [] }: {
               </div>
             </div>
           )}
-        </div>)}
+        </div>
 
         {/* Avatar */}
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0" style={{ background: '#0D9488' }}>

@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useAppStore } from '@/store/app'
+import { useSession } from 'next-auth/react'
 import { PageHeader, StatCard, Card, Table, Badge, BarChart } from '@/components/ui'
 import { fmt, fmtDate, currentPeriod, periodLabel } from '@/lib/utils'
 import { TrendingUp, Banknote, Users, AlertTriangle } from 'lucide-react'
@@ -9,13 +9,12 @@ import { TrendingUp, Banknote, Users, AlertTriangle } from 'lucide-react'
 // ─── Main page ───────────────────────────────────────────────────────────────
 export function ReportingPage() {
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const { adminCountryFilter } = useAppStore()
+  const { data: session } = useSession()
   const [period, setPeriod] = useState(currentPeriod())
-  const countryQ = adminCountryFilter !== 'all' ? '&countryId=' + adminCountryFilter : ''
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reporting', period, adminCountryFilter],
-    queryFn: () => fetch(`${B}/api/reporting?period=${period}${countryQ}`).then(r => r.json()),
+    queryKey: ['reporting', period],
+    queryFn: () => fetch(`${B}/api/reporting?period=${period}`).then(r => r.json()),
   })
 
   const d = data?.data
@@ -26,7 +25,20 @@ export function ReportingPage() {
   const overdueInvoices: any[] = d?.overdueInvoices ?? []
   const activity = d?.activityStats ?? {}
 
-  const fmtEur = (v: number) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v)} €`
+  // Admin super : consolidé EUR ; DG + opérateur : devise locale du pays rattaché
+  const role = (session?.user as any)?.role ?? 'operator'
+  const useLocal = role !== 'admin'
+  const singleCountry = useLocal && revenueByCountry.length > 0 ? revenueByCountry[0] : null
+  const exchRate = singleCountry?.exchangeToEur ?? 1
+  const countrySym = singleCountry?.symbol ?? '€'
+
+  const displayRevenue  = singleCountry ? singleCountry.total                          : totalRevenueEur
+  const displayPayments = singleCountry ? Math.round(totalPaymentsEur / exchRate)      : totalPaymentsEur
+  const displayPayroll  = singleCountry ? Math.round(totalPayrollEur  / exchRate)      : totalPayrollEur
+
+  const fmtEur   = (v: number) => `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v)} €`
+  const fmtLocal = (v: number) => fmt(v, countrySym)
+  const fmtKpi   = singleCountry ? fmtLocal : fmtEur
 
   // Bar chart data
   const chartData = revenueByCountry
@@ -52,19 +64,19 @@ export function ReportingPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard
           label="CA mensuel"
-          value={isLoading ? '—' : fmtEur(totalRevenueEur)}
+          value={isLoading ? '—' : fmtKpi(displayRevenue)}
           color="#0D9488"
           icon={<TrendingUp size={18} />}
         />
         <StatCard
           label="Encaissements"
-          value={isLoading ? '—' : fmtEur(totalPaymentsEur)}
+          value={isLoading ? '—' : fmtKpi(displayPayments)}
           color="#10B981"
           icon={<Banknote size={18} />}
         />
         <StatCard
           label="Masse salariale"
-          value={isLoading ? '—' : fmtEur(totalPayrollEur)}
+          value={isLoading ? '—' : fmtKpi(displayPayroll)}
           color="#7C3AED"
           icon={<Users size={18} />}
         />

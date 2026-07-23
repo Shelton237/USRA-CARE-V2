@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 
 // ─── Period helpers ───────────────────────────────────────────────────────
 function getPeriodRange(period: string): { start: Date; end: Date } {
@@ -97,7 +97,6 @@ export async function POST(req: Request) {
       },
       include: { user: { select: { id: true, firstName: true, lastName: true, role: true, countryId: true } } },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Objectifs', target.id, `${target.type} ${target.period}`)
     return ok(target)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

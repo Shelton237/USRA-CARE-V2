@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const missionId = new URL(req.url).searchParams.get('missionId') ?? ''
     const records = await prisma.overtimeRecord.findMany({
       where: { ...scope, ...(missionId && { missionId: Number(missionId) }) },
@@ -52,7 +52,6 @@ export async function POST(req: NextRequest) {
         createdById: session.user?.id ? Number(session.user.id) : null,
       },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Heures sup.', record.id)
     return ok(record, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

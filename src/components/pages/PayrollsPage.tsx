@@ -606,7 +606,9 @@ export function PayrollsPage() {
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const role = (session?.user?.role ?? 'operator') as string
-  const canPay = sessionStatus === 'authenticated' && role !== 'operator'
+  const canCreate   = sessionStatus === 'authenticated'
+  const canPay      = sessionStatus === 'authenticated'
+  const canGenerate = sessionStatus === 'authenticated' && role !== 'operator'
   const countryQ = adminCountryFilter !== 'all' ? '?countryId=' + adminCountryFilter : ''
 
   const [statusF, setStatusF]     = useState('all')
@@ -658,7 +660,7 @@ export function PayrollsPage() {
         subtitle={`${all.length} bulletin(s)`}
         actions={
           <div className="flex items-center gap-2">
-            {canPay && (
+            {canGenerate && (
               <button
                 onClick={() => setGenerating(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold text-white transition-colors"
@@ -667,7 +669,7 @@ export function PayrollsPage() {
                 Générer auto période
               </button>
             )}
-            {canPay && (
+            {canCreate && (
               <Btn icon={<Plus size={14} />} onClick={() => setCreating(true)}>
                 Nouveau bulletin
               </Btn>

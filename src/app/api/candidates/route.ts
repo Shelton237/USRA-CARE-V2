@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') ?? ''
     const status = searchParams.get('status') ?? ''
@@ -43,11 +43,32 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireAuth()
     const body = await req.json()
-    const { specialties, primarySpecialtyId, interview, ...data } = body
+    const { specialties, primarySpecialtyId, interview, birthDate, ...data } = body
+    const ns = (v: any) => (v === '' || v == null) ? null : v
 
     const candidate = await prisma.candidate.create({
       data: {
         ...data,
+        birthDate:        birthDate ? new Date(birthDate) : null,
+        phone2:           ns(data.phone2),
+        email:            ns(data.email),
+        address:          ns(data.address),
+        city:             ns(data.city),
+        nationalId:       ns(data.nationalId),
+        emergencyName1:   ns(data.emergencyName1),
+        emergencyPhone1:  ns(data.emergencyPhone1),
+        emergencyRelation1: ns(data.emergencyRelation1),
+        emergencyName2:   ns(data.emergencyName2),
+        emergencyPhone2:  ns(data.emergencyPhone2),
+        emergencyRelation2: ns(data.emergencyRelation2),
+        guarantorName:    ns(data.guarantorName),
+        guarantorPhone:   ns(data.guarantorPhone),
+        guarantorId:      ns(data.guarantorId),
+        guarantorJob:     ns(data.guarantorJob),
+        guarantorAddress: ns(data.guarantorAddress),
+        mobileMoneyAccount: ns(data.mobileMoneyAccount),
+        bankAccount:      ns(data.bankAccount),
+        notes:            ns(data.notes),
         primarySpecialtyId: primarySpecialtyId ? Number(primarySpecialtyId) : null,
         specialties: specialties?.length ? {
           create: specialties.map((sId: number) => ({
@@ -60,7 +81,6 @@ export async function POST(req: NextRequest) {
         } : {}),
       },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Candidats', candidate.id, `${candidate.firstName} ${candidate.lastName}`)
     return ok(candidate, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

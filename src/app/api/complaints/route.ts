@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter , logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const clientId = new URL(req.url).searchParams.get('clientId') ?? ''
     const complaints = await prisma.complaint.findMany({
       where: { ...scope, ...(clientId && { clientId: Number(clientId) }) },
@@ -53,7 +53,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    void logAudit(Number(session.user?.id), 'Création', 'Plaintes', complaint.id, complaint.type)
     return ok(complaint, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

@@ -1,18 +1,19 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 import { computePayrollFromNet } from '@/lib/utils'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status') ?? ''
-    const period = searchParams.get('period') ?? ''
+    const status    = searchParams.get('status')    ?? ''
+    const period    = searchParams.get('period')    ?? ''
+    const countryId = searchParams.get('countryId') ?? ''
 
     const payrolls = await prisma.payroll.findMany({
-      where: { ...scope, ...(status && { status }), ...(period && { period }) },
+      where: { ...scope, ...(status && { status }), ...(period && { period }), ...(countryId && { countryId: Number(countryId) }) },
       include: {
         candidate: { select: { firstName: true, lastName: true } },
         mission: { select: { contractType: true, clientId: true } },
@@ -97,7 +98,6 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    void logAudit(Number(session.user?.id), 'Création', 'Bulletins', payroll.id)
     return ok(payroll, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

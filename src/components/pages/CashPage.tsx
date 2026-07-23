@@ -3,15 +3,9 @@ import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader, Btn, Modal, Field, Card, Badge, StatCard, FilterSelect } from '@/components/ui'
 import { useAppStore } from '@/store/app'
+import { useSession } from 'next-auth/react'
 import { fmtDate, fmt } from '@/lib/utils'
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from 'lucide-react'
-
-const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
-
-const TYPES = [
-  { value: 'income',  label: 'Entrée' },
-  { value: 'expense', label: 'Sortie' },
-]
 
 const CATEGORIES = [
   { value: 'encaissement', label: 'Encaissement client' },
@@ -20,19 +14,15 @@ const CATEGORIES = [
   { value: 'capital',      label: 'Capital / Apport' },
 ]
 
-function CashForm({ countries, onClose, onSaved }: {
-  countries: any[]; onClose: () => void; onSaved: () => void
+function CashForm({ countries, onClose, onSaved, userCountryId, isOperator }: {
+  countries: any[]; onClose: () => void; onSaved: () => void; userCountryId?: string; isOperator?: boolean
 }) {
   const { showToast } = useAppStore()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const [saving, setSaving] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
-  const [f, setF] = useState({
-    countryId: '', type: 'income', category: 'encaissement',
-    amount: '', date: today, description: '', reference: '',
-  })
+  const [f, setF] = useState({ countryId: userCountryId ?? '', type: 'income', category: 'encaissement', amount: '', date: today, description: '', reference: '' })
   const u = (k: string) => (v: any) => setF(p => ({ ...p, [k]: v }))
-
-  const sym = countries.find(c => String(c.id) === f.countryId)?.symbol ?? ''
 
   const save = async () => {
     if (!f.countryId || !f.amount) { showToast('Pays et montant requis', 'error'); return }
@@ -49,16 +39,20 @@ function CashForm({ countries, onClose, onSaved }: {
   }
 
   return (
-    <Modal title="Nouvelle opération de caisse" onClose={onClose} size="md">
+    <Modal title="Nouvelle opération" onClose={onClose} size="sm">
       <div className="space-y-3">
-        <Field label="Pays *" value={f.countryId} onChange={u('countryId')}
-          options={[{ value: '', label: 'Sélectionner un pays...' }, ...countries.map(c => ({ value: String(c.id), label: c.name }))]} />
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Type" value={f.type} onChange={u('type')} options={TYPES} />
-          <Field label="Catégorie" value={f.category} onChange={u('category')} options={CATEGORIES} />
+        <Field label="Pays" value={f.countryId} onChange={u('countryId')} disabled={isOperator} options={[{value:'',label:'Sélectionner...'}, ...countries.map(c=>({value:String(c.id),label:c.name}))]} />
+        <div className="flex gap-3">
+          {[{v:'income',l:'Entrée'},{v:'expense',l:'Sortie'}].map(opt => (
+            <label key={opt.v} className="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="type" value={opt.v} checked={f.type===opt.v} onChange={() => setF(p=>({...p,type:opt.v}))} />
+              <span className="text-sm text-slate-700">{opt.l}</span>
+            </label>
+          ))}
         </div>
+        <Field label="Catégorie" value={f.category} onChange={u('category')} options={CATEGORIES} />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Montant *" type="number" value={f.amount} onChange={u('amount')} suffix={sym} />
+          <Field label="Montant *" type="number" value={f.amount} onChange={u('amount')} />
           <Field label="Date" type="date" value={f.date} onChange={u('date')} />
         </div>
         <Field label="Description" value={f.description} onChange={u('description')} />
@@ -73,28 +67,30 @@ function CashForm({ countries, onClose, onSaved }: {
 }
 
 export function CashPage() {
-  const { showToast, showConfirm, adminCountryFilter } = useAppStore()
+  const { showToast, showConfirm } = useAppStore()
+  const { data: session, status: sessionStatus } = useSession()
   const qc = useQueryClient()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const role = (session?.user?.role ?? 'operator') as string
+  const isOperator = sessionStatus === 'authenticated' && role === 'operator'
   const [typeF, setTypeF] = useState('all')
   const [creating, setCreating] = useState(false)
-  const countryQ = adminCountryFilter !== 'all' ? '?countryId=' + adminCountryFilter : ''
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['cash', adminCountryFilter],
-    queryFn: () => fetch(`${B}/api/cash${countryQ}`).then(r => r.json()),
-  })
-  const { data: countriesData } = useQuery({
-    queryKey: ['countries-list'],
-    queryFn: () => fetch(`${B}/api/countries`).then(r => r.json()),
-  })
+  const { data, isLoading } = useQuery({ queryKey: ['cash'], queryFn: () => fetch(`${B}/api/cash`).then(r => r.json()) })
+  const { data: countriesData } = useQuery({ queryKey: ['countries-list'], queryFn: () => fetch(`${B}/api/countries`).then(r => r.json()) })
   const countries = countriesData?.data ?? []
 
   const all: any[] = data?.data ?? []
   const entries = all.filter(e => typeF === 'all' || e.type === typeF)
   const refresh = () => qc.refetchQueries({ queryKey: ['cash'] })
 
-  const totalIncome  = all.filter(e => e.type === 'income') .reduce((s, e) => s + (e.amount * (e.country?.exchangeToEur ?? 1)), 0)
-  const totalExpense = all.filter(e => e.type === 'expense').reduce((s, e) => s + (e.amount * (e.country?.exchangeToEur ?? 1)), 0)
+  // Admin : consolidé en EUR ; DG + Opérateur : devise locale du pays rattaché
+  const useLocal = role !== 'admin'
+  const userCountryId = Number((session?.user as any)?.countryId)
+  const userCountry = countries.find((c: any) => c.id === userCountryId)
+  const countrySym = useLocal ? (userCountry?.symbol ?? all[0]?.country?.symbol ?? '') : '€'
+  const totalIncome  = all.filter(e => e.type === 'income').reduce((s, e) => s + (useLocal ? e.amount : e.amount * (e.country?.exchangeToEur ?? 1)), 0)
+  const totalExpense = all.filter(e => e.type === 'expense').reduce((s, e) => s + (useLocal ? e.amount : e.amount * (e.country?.exchangeToEur ?? 1)), 0)
   const balance = totalIncome - totalExpense
 
   const handleDelete = (e: any) => {
@@ -114,20 +110,20 @@ export function CashPage() {
     <div className="fade-in space-y-4">
       <PageHeader
         title="Trésorerie"
-        subtitle={`Solde consolidé : ${fmt(balance, '€')}`}
-        actions={<Btn icon={<Plus size={14} />} onClick={() => setCreating(true)}>Nouvelle opération</Btn>}
+        subtitle={`Solde consolidé : ${fmt(balance, countrySym)}`}
+        actions={<Btn icon={<Plus size={14}/>} onClick={() => setCreating(true)}>Nouvelle opération</Btn>}
       />
 
       <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Entrées"  value={fmt(totalIncome,  '€')} color="#10B981" icon={<TrendingUp size={16} />} />
-        <StatCard label="Sorties"  value={fmt(totalExpense, '€')} color="#EF4444" icon={<TrendingDown size={16} />} />
-        <StatCard label="Solde"    value={fmt(balance,      '€')} color={balance >= 0 ? '#0D9488' : '#EF4444'} icon={<Wallet size={16} />} />
+        <StatCard label="Entrées" value={fmt(totalIncome, countrySym)} color="#10B981" icon={<TrendingUp size={16}/>} />
+        <StatCard label="Sorties" value={fmt(totalExpense, countrySym)} color="#EF4444" icon={<TrendingDown size={16}/>} />
+        <StatCard label="Solde" value={fmt(balance, countrySym)} color={balance >= 0 ? '#10B981' : '#EF4444'} icon={<Wallet size={16}/>} />
       </div>
 
       <div className="flex gap-2">
         <FilterSelect value={typeF} onChange={setTypeF} options={[
-          { value: 'all',     label: 'Toutes opérations' },
-          { value: 'income',  label: 'Entrées' },
+          { value: 'all', label: 'Toutes opérations' },
+          { value: 'income', label: 'Entrées' },
           { value: 'expense', label: 'Sorties' },
         ]} />
       </div>
@@ -141,16 +137,8 @@ export function CashPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100">
-                {[
-                  { h: 'Date',        cls: '' },
-                  { h: 'Type',        cls: '' },
-                  { h: 'Catégorie',   cls: '' },
-                  { h: 'Description', cls: '' },
-                  { h: 'Montant',     cls: 'text-right' },
-                  { h: 'Référence',   cls: '' },
-                  { h: '',            cls: '' },
-                ].map(({ h, cls }) => (
-                  <th key={h} className={`px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide ${cls}`}>{h}</th>
+                {['Date','Type','Catégorie','Description','Montant','Référence',''].map(h => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -163,20 +151,14 @@ export function CashPage() {
                       {e.type === 'income' ? 'Entrée' : 'Sortie'}
                     </Badge>
                   </td>
-                  <td className="px-4 py-3 text-slate-600 text-xs">
-                    {CATEGORIES.find(c => c.value === e.category)?.label ?? e.category ?? '—'}
-                  </td>
+                  <td className="px-4 py-3 text-slate-600 text-xs">{CATEGORIES.find(c=>c.value===e.category)?.label ?? e.category ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-700">{e.description ?? '—'}</td>
-                  <td className="px-4 py-3 text-right font-bold"
-                    style={{ color: e.type === 'income' ? '#10B981' : '#EF4444' }}>
+                  <td className="px-4 py-3 text-right font-bold" style={{ color: e.type === 'income' ? '#10B981' : '#EF4444' }}>
                     {e.type === 'income' ? '+' : '−'}{fmt(e.amount, e.country?.symbol ?? '')}
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-400">{e.reference ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(e)}
-                      className="p-1.5 rounded-md hover:bg-red-50 hover:text-red-500 text-slate-300 transition-colors">
-                      <Trash2 size={13} />
-                    </button>
+                    <button onClick={() => handleDelete(e)} className="p-1.5 rounded-md hover:bg-red-50 hover:text-red-500 text-slate-300 transition-colors"><Trash2 size={13}/></button>
                   </td>
                 </tr>
               ))}
@@ -186,11 +168,10 @@ export function CashPage() {
       </Card>
 
       {creating && (
-        <CashForm
-          countries={countries}
-          onClose={() => setCreating(false)}
+        <CashForm countries={countries} onClose={() => setCreating(false)}
           onSaved={async () => { await refresh(); showToast('Opération enregistrée'); setCreating(false) }}
-        />
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={isOperator} />
       )}
     </div>
   )

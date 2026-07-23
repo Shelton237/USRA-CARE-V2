@@ -4,9 +4,8 @@ import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 export async function GET(req: Request) {
   try {
     const session = await requireAuth()
-    if (!['admin', 'dg'].includes(session.user?.role ?? '')) return err('Accès refusé', 403)
 
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const url = new URL(req.url)
     const period = url.searchParams.get('period') || ''
 
@@ -83,13 +82,14 @@ export async function GET(req: Request) {
       const total    = cInvoices.reduce((s, i) => s + i.total, 0)
       const totalEur = total * (c.exchangeToEur || 1)
       return {
-        countryId: c.id,
-        name:      c.name,
-        symbol:    c.symbol,
-        currency:  c.currency,
+        countryId:     c.id,
+        name:          c.name,
+        symbol:        c.symbol,
+        currency:      c.currency,
+        exchangeToEur: c.exchangeToEur || 1,
         total,
         totalEur,
-        count:     cInvoices.length,
+        count:         cInvoices.length,
       }
     })
 

@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, req)
+    const scope = scopeFilter(session)
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') ?? ''
     const type = searchParams.get('type') ?? ''
@@ -39,8 +39,10 @@ export async function POST(req: NextRequest) {
   try {
     const session = await requireAuth()
     const body = await req.json()
-    const client = await prisma.client.create({ data: body })
-    void logAudit(Number(session.user?.id), 'Création', 'Clients', client.id, client.name ?? client.companyName)
+    const countryId = session.user?.role === 'operator'
+      ? Number(session.user.countryId)
+      : body.countryId
+    const client = await prisma.client.create({ data: { ...body, countryId } })
     return ok(client, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

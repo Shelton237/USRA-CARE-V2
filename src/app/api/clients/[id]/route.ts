@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const { id: idStr } = await params
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
@@ -28,7 +28,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         notes:           body.notes           ?? null,
       },
     })
-    void logAudit(Number(session.user?.id), 'Modification', 'Clients', id)
     return ok(client)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
@@ -39,12 +38,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const { id: idStr } = await params
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
     await prisma.client.delete({ where: { id } })
-    void logAudit(Number(session.user?.id), 'Suppression', 'Clients', id)
     return ok({ deleted: true })
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

@@ -145,9 +145,14 @@ export async function POST(req: NextRequest) {
     for (const preview of previews) {
       const { lines, clientName, symbol, ...invoiceData } = preview
       const country = await prisma.country.findUnique({ where: { id: invoiceData.countryId } })
-      const year = new Date().getFullYear()
-      const count = await prisma.invoice.count({ where: { countryId: invoiceData.countryId } })
-      const reference = `${country?.invoicePrefix ?? 'INV'}-${year}-${String(count + 1).padStart(4, '0')}`
+      const invoiceYear = invoiceData.date ? new Date(invoiceData.date).getFullYear() : new Date().getFullYear()
+      const count = await prisma.invoice.count({
+        where: {
+          countryId: invoiceData.countryId,
+          date: { gte: new Date(invoiceYear, 0, 1), lt: new Date(invoiceYear + 1, 0, 1) },
+        },
+      })
+      const reference = `${country?.invoicePrefix ?? 'INV'}-${invoiceYear}-${String(count + 1).padStart(4, '0')}`
 
       const invoice = await prisma.invoice.create({
         data: { ...invoiceData, reference, lines: { create: lines } },

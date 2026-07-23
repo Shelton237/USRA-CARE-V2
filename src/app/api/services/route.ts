@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(_req: NextRequest) {
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
         active:            true,
       },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Services', service.id, service.name)
     return ok(service, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

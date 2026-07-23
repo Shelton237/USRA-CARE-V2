@@ -1,18 +1,18 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(_req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, _req)
+    const scope = scopeFilter(session)
     const payments = await prisma.payment.findMany({
       where: scope.countryId ? { invoice: { countryId: scope.countryId } } : {},
       include: {
         invoice: {
           select: {
             reference: true, total: true,
-            client: { select: { name: true } },
+            client: { select: { name: true, companyName: true } },
             country: { select: { symbol: true } },
           },
         },
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const body = await req.json()
     if (!body.invoiceId || !body.amount || !body.paymentMethod) return err('Champs requis manquants', 400)
 
@@ -37,17 +37,30 @@ export async function POST(req: NextRequest) {
 
     const payment = await prisma.payment.create({
       data: {
-        invoiceId:      Number(body.invoiceId),
-        countryId:      invoice.countryId,
-        date:           new Date(body.date),
-        amount:         Number(body.amount),
-        paymentMethod:  body.paymentMethod,
-        mobileProvider: body.mobileProvider ?? null,
-        reference:      body.reference ?? null,
-        notes:          body.notes     ?? null,
+        invoiceId:     Number(body.invoiceId),
+        countryId:     invoice.countryId,
+        date:          new Date(body.date),
+        amount:        Number(body.amount),
+        paymentMethod: body.paymentMethod,
+        reference:     body.reference ?? null,
+        notes:         body.notes     ?? null,
       },
     })
 
+    // Faire apparaître l'encaissement dans la Caisse (trésorerie)
+    await prisma.cashEntry.create({
+      data: {
+        countryId:   invoice.countryId,
+        type:        'income',
+        category:    'encaissement',
+        date:        new Date(body.date),
+        amount:      Number(body.amount),
+        description: `Facture ${invoice.reference}`,
+        reference:   body.reference ?? null,
+      },
+    })
+
+    // Mise à jour statut facture
     const totalPaid = await prisma.payment.aggregate({
       where: { invoiceId: invoice.id },
       _sum: { amount: true },
@@ -58,10 +71,10 @@ export async function POST(req: NextRequest) {
     else if (paid > 0) newStatus = 'partially_paid'
     await prisma.invoice.update({ where: { id: invoice.id }, data: { status: newStatus } })
 
-    void logAudit(Number(session.user?.id), 'Paiement', 'Factures', Number(body.invoiceId))
     return ok(payment, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
+    console.error('POST /api/payments', e)
     return err('Erreur serveur', 500)
   }
 }

@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function fmt(amount: number, symbol = '') {
-  return `${symbol} ${new Intl.NumberFormat('fr-FR').format(Math.round(amount))}`.trim()
+  return `${new Intl.NumberFormat('fr-FR').format(Math.round(amount))} ${symbol}`.trim()
 }
 
 export function fmtDate(date: string | Date | null | undefined) {

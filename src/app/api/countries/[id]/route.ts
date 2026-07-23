@@ -1,6 +1,24 @@
 import { prisma } from '@/lib/db'
 import { ok, err, requireAuth } from '@/lib/api'
 
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await requireAuth()
+    if (session.user?.role !== 'admin') return err('Accès refusé', 403)
+    const { id: idStr } = await params
+    const id = parseInt(idStr)
+    if (isNaN(id)) return err('ID invalide', 400)
+    await prisma.contribution.deleteMany({ where: { countryId: id } })
+    await prisma.irsaBracket.deleteMany({ where: { countryId: id } })
+    await prisma.country.delete({ where: { id } })
+    return ok({ deleted: true })
+  } catch (e: any) {
+    if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
+    console.error('DELETE /api/countries/[id]', e)
+    return err('Erreur serveur', 500)
+  }
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await requireAuth()
@@ -90,50 +108,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
     console.error('PUT /api/countries/[id]', e)
-    return err('Erreur serveur', 500)
-  }
-}
-
-// Mise à jour rapide du taux de change uniquement
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await requireAuth()
-    if (session.user?.role !== 'admin') return err('Accès refusé', 403)
-
-    const { id: idStr } = await params
-    const id = parseInt(idStr)
-    if (isNaN(id)) return err('ID invalide', 400)
-
-    const body = await req.json()
-    const exchangeToEur = parseFloat(body.exchangeToEur)
-    if (!exchangeToEur || exchangeToEur <= 0) return err('Taux invalide', 400)
-
-    const updated = await prisma.country.update({
-      where: { id },
-      data: { exchangeToEur },
-      select: { id: true, name: true, symbol: true, exchangeToEur: true },
-    })
-
-    return ok(updated)
-  } catch (e: any) {
-    if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
-    return err('Erreur serveur', 500)
-  }
-}
-
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  try {
-    const session = await requireAuth()
-    if (session.user?.role !== 'admin') return err('Accès refusé', 403)
-
-    const { id: idStr } = await params
-    const id = parseInt(idStr)
-    if (isNaN(id)) return err('ID invalide', 400)
-
-    await prisma.country.delete({ where: { id } })
-    return ok({ deleted: true })
-  } catch (e: any) {
-    if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
     return err('Erreur serveur', 500)
   }
 }

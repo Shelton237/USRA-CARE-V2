@@ -1,17 +1,16 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter , logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(_req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, _req)
+    const scope = scopeFilter(session)
     const records = await prisma.equipmentRecord.findMany({
       where: scope,
       include: {
         candidate: { select: { firstName: true, lastName: true } },
-        mission: { include: { client: { select: { name: true, companyName: true } } } },
-        country: { select: { symbol: true } },
+        mission: { include: { client: { select: { name: true } } } },
       },
       orderBy: { date: 'desc' },
     })
@@ -46,7 +45,6 @@ export async function POST(req: NextRequest) {
         notes:       b.notes ?? null,
       },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Matériels', record.id)
     return ok(record, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

@@ -10,9 +10,7 @@ import {
   ArrowDown, ArrowUp, ChevronRight, CheckCircle2, XCircle, Coins,
 } from 'lucide-react'
 
-const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
-
-// ─── Color maps ───────────────────────────────────────────────────────────────
+// ─── Color maps ──────────────────────────────────────────────────────────────
 
 const ALERT_COLOR: Record<string, { bg: string; border: string; text: string; icon: string }> = {
   warning: { bg: '#FFFBEB', border: '#FDE68A', text: '#B45309', icon: '#F59E0B' },
@@ -21,37 +19,39 @@ const ALERT_COLOR: Record<string, { bg: string; border: string; text: string; ic
 }
 
 const INV_STATUS: Record<string, { label: string; color: string }> = {
-  draft:          { label: 'Brouillon',   color: '#94A3B8' },
-  sent:           { label: 'Émise',       color: '#3B82F6' },
-  paid:           { label: 'Payée',       color: '#10B981' },
-  partially_paid: { label: 'Part. payée', color: '#D97706' },
-  overdue:        { label: 'En retard',   color: '#EF4444' },
-  cancelled:      { label: 'Annulée',     color: '#64748B' },
+  draft:     { label: 'Brouillon', color: '#94A3B8' },
+  sent:      { label: 'Émise',     color: '#3B82F6' },
+  paid:      { label: 'Payée',     color: '#10B981' },
+  overdue:   { label: 'Retard',    color: '#EF4444' },
+  cancelled: { label: 'Annulée',   color: '#64748B' },
 }
 
 const CONTRACT_TYPE: Record<string, { label: string; color: string }> = {
-  placement:     { label: 'Placement',  color: '#0D9488' },
-  mad:           { label: 'MAD',        color: '#7C3AED' },
-  mise_a_disposition: { label: 'MAD',   color: '#7C3AED' },
-  prestation:    { label: 'Prestation', color: '#3B82F6' },
+  placement: { label: 'Placement',    color: '#0D9488' },
+  mad:       { label: 'MAD',          color: '#7C3AED' },
+  prestation:{ label: 'Prestation',   color: '#3B82F6' },
 }
 
 const MISSION_STATUS: Record<string, { label: string; color: string }> = {
-  active:    { label: 'Actif',    color: '#10B981' },
-  pending:   { label: 'Attente',  color: '#F59E0B' },
-  completed: { label: 'Terminé',  color: '#0D9488' },
-  cancelled: { label: 'Annulé',   color: '#64748B' },
+  active:    { label: 'Actif',   color: '#10B981' },
+  pending:   { label: 'Attente', color: '#F59E0B' },
+  completed: { label: 'Terminé', color: '#0D9488' },
+  cancelled: { label: 'Annulé',  color: '#64748B' },
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function DashboardPage() {
   const { data: session } = useSession()
-  const { setPage } = useAppStore()
+  const { adminCountryFilter, setPage } = useAppStore()
+  const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => fetch(`${B}/api/dashboard`).then(r => r.json()),
+    queryKey: ['dashboard', adminCountryFilter],
+    queryFn: () => {
+      const q = adminCountryFilter !== 'all' ? `?countryId=${adminCountryFilter}` : ''
+      return fetch(`${B}/api/dashboard${q}`).then(r => r.json())
+    },
     refetchInterval: 60_000,
   })
 
@@ -62,19 +62,23 @@ export function DashboardPage() {
   const pipeline       = data?.data?.pipeline        ?? []
   const recentInvoices = data?.data?.recentInvoices  ?? []
   const recentMissions = data?.data?.recentMissions  ?? []
+  const countriesData  = data?.data?.countries       ?? []
+  
   const isAdmin        = session?.user?.role === 'admin'
-  const isOperator     = session?.user?.role === 'operator'
+  const isGlobalView   = isAdmin && adminCountryFilter === 'all'
+  const selectedCtry   = adminCountryFilter !== 'all' ? countriesData.find((c: any) => String(c.id) === adminCountryFilter) : null
+  
+  const currency       = isGlobalView ? '€' : (selectedCtry?.symbol ?? (session?.user as any)?.countrySymbol ?? '€')
+  // Pour la vue globale (admin) : CA en EUR converti ; pour un pays spécifique : montant local brut
+  const displayCA      = isGlobalView ? (stats.totalCAEur ?? 0) : (stats.totalCA ?? 0)
 
   const alerts = [
-    { count: counters.overtime           ?? 0, label: 'Heures sup à valider',    page: 'overtime',     color: 'warning', icon: Clock },
-    { count: counters.advances           ?? 0, label: 'Avances à approuver',    page: 'advances',     color: 'warning', icon: Wallet },
-    { count: counters.attendance         ?? 0, label: 'Présences à valider',   page: 'attendance',   color: 'warning', icon: ClipboardList },
-    { count: counters.payrollsToValidate ?? 0, label: 'Bulletins à valider',    page: 'payrolls',     color: 'warning', icon: CheckCircle2 },
-    { count: counters.payrollsToPay      ?? 0, label: 'Bulletins à payer',      page: 'payrolls',     color: 'warning', icon: CreditCard },
-    { count: counters.invoices           ?? 0, label: 'Factures en retard',     page: 'invoices',     color: 'danger',  icon: Receipt },
-    { count: counters.complaints         ?? 0, label: 'Plaintes ouvertes',      page: 'complaints',   color: 'danger',  icon: MessageSquareWarning },
-    { count: counters.trialEnding        ?? 0, label: 'Fin essai proche',       page: 'missions',     color: 'info',    icon: AlertTriangle },
-    { count: counters.evaluationsDue     ?? 0, label: 'Évaluations à planifier', page: 'evaluations',  color: 'info',    icon: ClipboardList },
+    { count: counters.overtime    ?? 0, label: 'Heures sup à valider', page: 'overtime',   color: 'warning', icon: Clock },
+    { count: counters.advances    ?? 0, label: 'Avances à approuver',  page: 'advances',   color: 'warning', icon: Wallet },
+    { count: counters.attendance  ?? 0, label: 'Présences à valider',  page: 'attendance', color: 'warning', icon: ClipboardList },
+    { count: counters.invoices    ?? 0, label: 'Factures en retard',   page: 'invoices',   color: 'danger',  icon: Receipt },
+    { count: counters.complaints  ?? 0, label: 'Plaintes ouvertes',    page: 'complaints', color: 'danger',  icon: MessageSquareWarning },
+    { count: counters.trialEnding ?? 0, label: 'Fin essai proche',     page: 'missions',   color: 'info',    icon: AlertTriangle },
   ]
 
   return (
@@ -84,9 +88,8 @@ export function DashboardPage() {
         subtitle={isAdmin ? 'Vue consolidée — Tous les pays' : (session?.user?.countryName ?? '')}
       />
 
-      {/* ── Alertes ── */}
-      {!isOperator && (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3">
+      {/* ── Alertes ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {alerts.map((a, i) => {
           const active = a.count > 0
           const c = active ? ALERT_COLOR[a.color] : { bg: '#F8FAFC', border: '#E2E8F0', text: '#94A3B8', icon: '#CBD5E1' }
@@ -104,31 +107,17 @@ export function DashboardPage() {
           )
         })}
       </div>
-      )}
 
-      {/* ── KPIs (toujours en EUR — consolidé multi-pays) ── */}
+      {/* ── KPIs ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <KpiCard label="Candidats"        icon={Users}      color="#0D9488"
-          value={stats.candidates ?? 0}
-          sub={`${stats.candidatesAvail ?? 0} disponible${(stats.candidatesAvail ?? 0) !== 1 ? 's' : ''}`}
-          onClick={() => setPage('candidates')} />
-        <KpiCard label="Missions actives"  icon={Briefcase}  color="#3B82F6"
-          value={stats.missions ?? 0}
-          sub={`${stats.allMissions ?? 0} au total`}
-          onClick={() => setPage('missions')} />
-        <KpiCard label="CA Facturé"        icon={Receipt}    color="#D4A437"
-          value={fmt(stats.totalCA ?? 0, '€')}
-          onClick={() => setPage('invoices')} />
-        <KpiCard label="Encaissé"          icon={CreditCard} color="#10B981"
-          value={fmt(stats.totalEncaisse ?? 0, '€')}
-          sub={`${pct(stats.totalEncaisse ?? 0, stats.totalCA ?? 0)}% du CA`}
-          onClick={() => setPage('payments')} />
-        <KpiCard label="Marge active"      icon={TrendingUp} color="#7C3AED"
-          value={fmt(stats.margin ?? 0, '€')}
-          onClick={() => setPage('missions')} />
+        <KpiCard label="Candidats"       icon={Users}       color="#0D9488" value={stats.candidates ?? 0}              sub={`${stats.candidatesAvail ?? 0} disponible${(stats.candidatesAvail ?? 0) !== 1 ? 's' : ''}`} onClick={() => setPage('candidates')} />
+        <KpiCard label="Missions actives" icon={Briefcase}   color="#3B82F6" value={stats.missions ?? 0}                sub={`${stats.allMissions ?? 0} au total`}                                                        onClick={() => setPage('missions')} />
+        <KpiCard label="CA Facturé"      icon={Receipt}     color="#D4A437" value={fmt(displayCA, currency)}                                                                                                          onClick={() => setPage('invoices')} />
+        <KpiCard label="Encaissé"        icon={CreditCard}  color="#10B981" value={fmt(stats.totalEncaisse ?? 0, currency)} sub={`${pct(stats.totalEncaisse ?? 0, displayCA)}% du CA`}                                   onClick={() => setPage('payments')} />
+        <KpiCard label="Marge active"    icon={TrendingUp}  color="#7C3AED" value={fmt(stats.margin ?? 0, currency)}                                                                                                     onClick={() => setPage('missions')} />
       </div>
 
-      {/* ── Trésorerie (devise locale par pays) ── */}
+      {/* ── Trésorerie ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -150,7 +139,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Charts ── */}
+      {/* ── Charts ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* CA par pays — 2/3 */}
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
@@ -172,7 +161,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Tables ── */}
+      {/* ── Tables ──────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Dernières factures */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -183,7 +172,6 @@ export function DashboardPage() {
               Tout voir
             </button>
           </div>
-          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -195,7 +183,7 @@ export function DashboardPage() {
             </thead>
             <tbody>
               {recentInvoices.map((inv: any) => {
-                const st = INV_STATUS[inv.status]        ?? { label: inv.status,      color: '#94A3B8' }
+                const st = INV_STATUS[inv.status] ?? { label: inv.status, color: '#94A3B8' }
                 const ct = CONTRACT_TYPE[inv.invoiceType?.toLowerCase()] ?? { label: inv.invoiceType, color: '#64748B' }
                 return (
                   <tr key={inv.id} className="border-t border-slate-50 hover:bg-slate-50/60 transition-colors">
@@ -205,7 +193,7 @@ export function DashboardPage() {
                         style={{ background: ct.color + '18', color: ct.color }}>{ct.label}</span>
                     </td>
                     <td className="px-5 py-3 text-right text-[12px] font-semibold text-slate-700">
-                      {fmt(inv.total, inv.country?.symbol ?? '?')}
+                      {fmt(inv.total, inv.country?.symbol ?? '€')}
                     </td>
                     <td className="px-5 py-3 text-right">
                       <span className="inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold"
@@ -219,7 +207,6 @@ export function DashboardPage() {
               )}
             </tbody>
           </table>
-          </div>
         </div>
 
         {/* Missions récentes */}
@@ -231,7 +218,6 @@ export function DashboardPage() {
               Tout voir
             </button>
           </div>
-          <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -242,7 +228,7 @@ export function DashboardPage() {
             </thead>
             <tbody>
               {recentMissions.map((m: any) => {
-                const st = MISSION_STATUS[m.status]           ?? { label: m.status,      color: '#94A3B8' }
+                const st = MISSION_STATUS[m.status] ?? { label: m.status, color: '#94A3B8' }
                 const ct = CONTRACT_TYPE[m.contractType?.toLowerCase()] ?? { label: m.contractType, color: '#64748B' }
                 return (
                   <tr key={m.id} className="border-t border-slate-50 hover:bg-slate-50/60 transition-colors">
@@ -270,7 +256,6 @@ export function DashboardPage() {
               )}
             </tbody>
           </table>
-          </div>
         </div>
       </div>
     </div>
@@ -327,7 +312,8 @@ function TreasuryCard({ country }: { country: any }) {
 }
 
 function CaBarChart({ caByCountry, isLoading }: { caByCountry: any[]; isLoading: boolean }) {
-  if (!caByCountry.length) {
+  const hasData = caByCountry.some((c: any) => (c.totalCA ?? 0) > 0)
+  if (!hasData) {
     return (
       <div className="flex flex-col items-center justify-center h-40 text-slate-200">
         <TrendingUp size={32} className="mb-2" />
@@ -336,55 +322,44 @@ function CaBarChart({ caByCountry, isLoading }: { caByCountry: any[]; isLoading:
     )
   }
 
-  const maxVal = Math.max(...caByCountry.map(d => Math.abs(d.totalEur)), 1)
+  const data = caByCountry.map((c: any) => ({
+    label: c.code,
+    value: c.totalCAEur ?? Math.round((c.totalCA ?? 0) * (c.exchangeToEur ?? 1)),
+  }))
+  const maxVal = Math.max(...data.map(d => Math.abs(d.value)), 1)
 
-  // EUR : valeur exacte
-  const fmtEur = (v: number) => {
-    if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M €`
-    return `${Math.round(v).toLocaleString('fr-FR')} €`
-  }
-
-  // Devise locale : condensée
-  const fmtLocal = (v: number, symbol: string) => {
+  const fmtVal = (v: number) => {
     const abs = Math.abs(v)
-    if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M ${symbol}`
-    if (abs >= 1_000)     return `${Math.round(v / 1000)}k ${symbol}`
-    return `${v.toLocaleString('fr-FR')} ${symbol}`
+    if (abs >= 1000) return `${(v / 1000).toFixed(0)}k`
+    return v.toLocaleString('fr-FR')
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 230 }}>
-      <div className="text-[10px] text-slate-300 mb-1 pl-1">{fmtEur(maxVal)}</div>
+    <div className="flex flex-col" style={{ height: 200 }}>
+      {/* Échelle Y */}
+      <div className="text-[10px] text-slate-300 mb-1 pl-1">{fmtVal(maxVal)}</div>
+      {/* Barres */}
       <div className="flex items-end flex-1 border-b border-slate-100 gap-6 px-2">
-        {caByCountry.map((d, i) => {
-          const heightPct = maxVal > 0 ? Math.max(Math.round((Math.abs(d.totalEur) / maxVal) * 100), d.totalEur > 0 ? 4 : 0) : 0
+        {data.map((d, i) => {
+          const heightPct = maxVal > 0 ? Math.max(Math.round((Math.abs(d.value) / maxVal) * 100), d.value > 0 ? 4 : 0) : 0
           return (
-            <div key={i} className="flex flex-col items-center gap-1 flex-1">
-              {/* Montant EUR exact */}
-              <span className="text-[12px] font-bold text-slate-700 leading-tight">
-                {fmtEur(d.totalEur)}
-              </span>
-              {/* Montant en devise locale */}
-              <span className="text-[10px] text-slate-400 leading-tight">
-                {fmtLocal(d.totalLocal, d.symbol)}
-              </span>
-              <div className="w-full max-w-[72px] rounded-t-lg transition-all duration-700 mt-1"
+            <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
+              <span className="text-[11px] font-semibold text-slate-500">{fmtVal(d.value)}</span>
+              <div className="w-full max-w-[72px] rounded-t-lg transition-all duration-700"
                 style={{
                   height: `${heightPct}%`,
-                  minHeight: d.totalEur > 0 ? 6 : 2,
-                  background: d.totalEur >= 0 ? '#0D9488' : '#EF4444',
-                  opacity: d.totalEur === 0 ? 0.3 : 1,
+                  minHeight: d.value > 0 ? 6 : 2,
+                  background: d.value >= 0 ? '#0D9488' : '#EF4444',
+                  opacity: d.value === 0 ? 0.3 : 1,
                 }} />
             </div>
           )
         })}
       </div>
+      {/* Labels X */}
       <div className="flex px-2 pt-2">
-        {caByCountry.map((d, i) => (
-          <div key={i} className="flex-1 text-center">
-            <div className="text-[11px] font-semibold text-slate-500">{d.code}</div>
-            <div className="text-[10px] text-slate-300">{d.name}</div>
-          </div>
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 text-center text-[11px] text-slate-400">{d.label}</div>
         ))}
       </div>
     </div>

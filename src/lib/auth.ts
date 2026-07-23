@@ -13,11 +13,12 @@ async function auditAuth(userId: number, action: string, detail?: string) {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  basePath:  '/api/auth',
   secret:    process.env.NEXTAUTH_SECRET,
   session:   { strategy: 'jwt', maxAge: 24 * 60 * 60 },
   pages: {
-    signIn: '/v2/login',
-    error:  '/v2/login',
+    signIn: '/login',
+    error:  '/login',
   },
   providers: [
     Credentials({
@@ -66,20 +67,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   events: {
     async signIn({ user }: any) {
       if (user?.id) {
-        await auditAuth(
-          Number(user.id),
-          'LOGIN',
-          `Connexion réussie — ${user.email}`
-        )
+        await auditAuth(Number(user.id), 'LOGIN', `Connexion réussie — ${user.email}`)
       }
     },
     async signOut({ token }: any) {
       if (token?.id) {
-        await auditAuth(
-          Number(token.id),
-          'LOGOUT',
-          `Déconnexion — ${token.email}`
-        )
+        await auditAuth(Number(token.id), 'LOGOUT', `Déconnexion — ${token.email}`)
       }
     },
   },

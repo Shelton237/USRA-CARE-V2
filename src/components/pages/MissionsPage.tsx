@@ -1,115 +1,11 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PageHeader, SearchBox, Btn, Card, FilterSelect, Modal, Field, InfoRow } from '@/components/ui'
 import { useAppStore } from '@/store/app'
 import { useSession } from 'next-auth/react'
 import { fmtDate } from '@/lib/utils'
-import {
-  Plus, Pencil, ArrowRight, ChevronDown,
-  Shield, ShieldCheck, Eye, Lock,
-  Home, Sparkles, Sofa, Wind,
-  Baby, HeartHandshake, Heart,
-  Car, Truck,
-  UtensilsCrossed, ChefHat, Coffee,
-  Zap, Wrench, Hammer, Pipette, Paintbrush, Sprout, Flower2,
-  Calculator, BarChart3, ClipboardList, FileText,
-  Monitor, Code, Cpu, Database,
-  Phone, Headphones, Mail,
-  Package, Briefcase, Building2, Users, Star,
-} from 'lucide-react'
-
-// ─── Service Icon ─────────────────────────────────────────────────────────────
-
-const ICON_MAP: Record<string, React.ElementType> = {
-  shield: Shield, shield_check: ShieldCheck, eye: Eye, lock: Lock,
-  home: Home, sparkles: Sparkles, sofa: Sofa, wind: Wind,
-  baby: Baby, heart_hand: HeartHandshake, heart: Heart,
-  car: Car, truck: Truck,
-  utensils: UtensilsCrossed, chef: ChefHat, coffee: Coffee,
-  zap: Zap, wrench: Wrench, hammer: Hammer, pipette: Pipette,
-  paintbrush: Paintbrush, sprout: Sprout, flower: Flower2,
-  calculator: Calculator, chart: BarChart3, clipboard: ClipboardList, file: FileText,
-  monitor: Monitor, code: Code, cpu: Cpu, database: Database,
-  phone: Phone, headphones: Headphones, mail: Mail,
-  package: Package, briefcase: Briefcase, building: Building2, users: Users, star: Star,
-}
-
-const EMOJI_TO_SLUG: Record<string, string> = {
-  '🔒': 'lock', '🛡': 'shield', '👶': 'baby', '🤝': 'heart_hand',
-  '🚗': 'car', '🚛': 'truck', '🍴': 'utensils', '👨‍🍳': 'chef',
-  '⚡': 'zap', '🔧': 'wrench', '🔨': 'hammer', '🎨': 'paintbrush',
-  '🌱': 'sprout', '✨': 'sparkles', '🏠': 'home', '🏢': 'building',
-  '💻': 'monitor', '📊': 'chart', '📋': 'clipboard', '📞': 'phone',
-  '👥': 'users', '💼': 'briefcase', '⭐': 'star',
-  '🧹': 'sparkles', '🌿': 'sprout', '🔍': 'eye',
-}
-
-function resolveSlug(icon?: string | null): string {
-  if (!icon) return 'briefcase'
-  if (ICON_MAP[icon]) return icon
-  return EMOJI_TO_SLUG[icon] ?? 'briefcase'
-}
-
-function ServiceIcon({ slug, size = 14 }: { slug: string; size?: number }) {
-  const Comp = ICON_MAP[resolveSlug(slug)] ?? Briefcase
-  return <Comp size={size} />
-}
-
-function ServiceSelect({ value, onChange, services }: {
-  value: string; onChange: (v: string) => void; services: any[]
-}) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const selected = services.find((s: any) => String(s.id) === value)
-
-  return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(p => !p)}
-        className="w-full flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-lg bg-white text-sm text-left hover:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-200 transition-colors">
-        {selected ? (
-          <>
-            <span className="text-slate-500 flex-shrink-0">
-              <ServiceIcon slug={selected.icon} size={15} />
-            </span>
-            <span className="text-slate-800 flex-1">{selected.name}</span>
-          </>
-        ) : (
-          <span className="text-slate-400 flex-1">— Sélectionner —</span>
-        )}
-        <ChevronDown size={14} className={`text-slate-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      {open && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-          <button type="button" onClick={() => { onChange(''); setOpen(false) }}
-            className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-slate-400 hover:bg-slate-50 border-b border-slate-100">
-            — Sélectionner —
-          </button>
-          {services.map((s: any) => (
-            <button key={s.id} type="button"
-              onClick={() => { onChange(String(s.id)); setOpen(false) }}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm transition-colors ${String(s.id) === value ? 'bg-teal-50 text-teal-700 font-medium' : 'text-slate-700 hover:bg-slate-50'}`}>
-              <span className={`flex-shrink-0 ${String(s.id) === value ? 'text-teal-600' : 'text-slate-400'}`}>
-                <ServiceIcon slug={s.icon} size={15} />
-              </span>
-              {s.name}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
+import { Plus, Pencil, ArrowRight } from 'lucide-react'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -352,8 +248,8 @@ function calcTrialEnd(startDate: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-function MissionForm({ mission, onClose, onSaved }: {
-  mission?: any; onClose: () => void; onSaved: () => void
+function MissionForm({ mission, onClose, onSaved, userCountryId, isOperator }: {
+  mission?: any; onClose: () => void; onSaved: () => void; userCountryId?: string; isOperator?: boolean
 }) {
   const { showToast } = useAppStore()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
@@ -385,12 +281,12 @@ function MissionForm({ mission, onClose, onSaved }: {
   const today = new Date().toISOString().slice(0, 10)
 
   const [f, setF] = useState(() => ({
-    countryId:      mission?.countryId      ? String(mission.countryId)   : '1',
+    countryId:      mission?.countryId      ? String(mission.countryId)   : (userCountryId ?? ''),
     clientId:       mission?.clientId       ? String(mission.clientId)    : '',
     candidateId:    mission?.candidateId    ? String(mission.candidateId) : '',
     serviceId:      mission?.serviceId      ? String(mission.serviceId)   : '',
     contractType:   mission?.contractType   ?? 'placement',
-    status:         mission?.status         ?? 'pending',
+    status:         mission?.status         ?? 'active',
     startDate:      mission?.startDate      ? new Date(mission.startDate).toISOString().slice(0, 10)      : today,
     endDate:        mission?.endDate        ? new Date(mission.endDate).toISOString().slice(0, 10)        : '',
     prorataBase:    mission?.prorataBase    ? String(mission.prorataBase) : '30',
@@ -461,7 +357,7 @@ function MissionForm({ mission, onClose, onSaved }: {
 
         {/* Pays | Type de contrat */}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Pays" value={f.countryId} onChange={u('countryId')}
+          <Field label="Pays" value={f.countryId} onChange={u('countryId')} disabled={isOperator}
             options={[
               { value: '', label: 'Sélectionner...' },
               ...countries.map((c: any) => ({ value: String(c.id), label: c.name })),
@@ -491,12 +387,12 @@ function MissionForm({ mission, onClose, onSaved }: {
 
         {/* Service | Statut */}
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-              Service
-            </label>
-            <ServiceSelect value={f.serviceId} onChange={u('serviceId')} services={services} />
-          </div>
+          <Field label="Service" value={f.serviceId} onChange={u('serviceId')}
+            options={[
+              { value: '', label: '— Sélectionner —' },
+              ...services.map((s: any) => ({ value: String(s.id), label: `${s.icon ? s.icon + ' ' : ''}${s.name}` })),
+            ]}
+          />
           <Field label="Statut" value={f.status} onChange={u('status')} options={[
             { value: 'pending',    label: 'En attente' },
             { value: 'active',     label: 'Actif' },
@@ -554,13 +450,13 @@ function MissionForm({ mission, onClose, onSaved }: {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function MissionsPage() {
-  const { showToast, adminCountryFilter } = useAppStore()
+  const { showToast } = useAppStore()
   const { data: session, status: sessionStatus } = useSession()
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
-  const countryQ = adminCountryFilter !== 'all' ? 'countryId=' + adminCountryFilter : ''
   const role = (session?.user?.role ?? 'operator') as string
-  const canEdit = sessionStatus === 'authenticated' && role !== 'operator'
+  const canCreate = sessionStatus === 'authenticated'
+  const canEdit   = sessionStatus === 'authenticated' && role !== 'operator'
 
   const [search, setSearch]     = useState('')
   const [statusF, setStatusF]   = useState('all')
@@ -570,9 +466,9 @@ export function MissionsPage() {
   const [creating, setCreating] = useState(false)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['missions', statusF, typeF, adminCountryFilter],
+    queryKey: ['missions', statusF, typeF],
     queryFn: () =>
-      fetch(`${B}/api/missions?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}${countryQ ? '&' + countryQ : ''}`)
+      fetch(`${B}/api/missions?status=${statusF === 'all' ? '' : statusF}&type=${typeF === 'all' ? '' : typeF}`)
         .then(r => r.json()),
   })
 
@@ -594,7 +490,7 @@ export function MissionsPage() {
         actions={
           <div className="flex items-center gap-2">
             <SearchBox value={search} onChange={setSearch} placeholder="Rechercher..." />
-            {canEdit && (
+            {canCreate && (
               <Btn icon={<Plus size={14} />} onClick={() => setCreating(true)}>
                 Nouvelle mission
               </Btn>
@@ -641,11 +537,8 @@ export function MissionsPage() {
                     <div className="font-semibold text-[13px] text-slate-800">
                       {m.candidate?.firstName} {m.candidate?.lastName}
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-teal-600 italic mt-0.5">
-                      {m.service?.name && (
-                        <ServiceIcon slug={m.service.icon} size={12} />
-                      )}
-                      {m.service?.name ?? '—'}
+                    <div className="text-[11px] text-teal-600 italic mt-0.5">
+                      {m.service?.icon ? `${m.service.icon} ` : ''}{m.service?.name ?? '—'}
                     </div>
                   </td>
 
@@ -684,6 +577,8 @@ export function MissionsPage() {
         <MissionForm
           onClose={() => setCreating(false)}
           onSaved={async () => { await refresh(); showToast('Mission créée'); setCreating(false) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'}
         />
       )}
       {editing && (
@@ -691,6 +586,8 @@ export function MissionsPage() {
           mission={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => { await refresh(); showToast('Mission modifiée'); setEditing(null) }}
+          userCountryId={String(session?.user?.countryId ?? '')}
+          isOperator={role === 'operator'}
         />
       )}
       {viewing && (

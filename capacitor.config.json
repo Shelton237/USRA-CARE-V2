@@ -1,0 +1,29 @@
+{
+  "appId": "com.usracare.backoffice",
+  "appName": "USRA-CARE",
+  "webDir": "out",
+  "server": {
+    "url": "http://10.0.2.2:3000",
+    "cleartext": true
+  },
+  "android": {
+    "buildOptions": {
+      "keystorePath": null,
+      "keystorePassword": null,
+      "keystoreAlias": null,
+      "keystoreAliasPassword": null
+    }
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0F172A",
+      "androidSplashResourceName": "splash",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "Dark",
+      "backgroundColor": "#0F172A"
+    }
+  }
+}

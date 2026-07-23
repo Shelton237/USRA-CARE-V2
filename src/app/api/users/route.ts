@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 
@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
       include: { country: true, office: true },
     })
     const { password: _, ...safeUser } = user
-    void logAudit(Number(session.user?.id), 'Création', 'Utilisateurs', user.id, `${user.firstName} ${user.lastName}`)
     return ok(safeUser, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

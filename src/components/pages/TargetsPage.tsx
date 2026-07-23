@@ -197,7 +197,7 @@ function TargetForm({ target, onClose, onSaved }: {
   }
 
   return (
-    <Modal title={target ? 'Modifier objectif' : 'Nouvel objectif'} onClose={onClose} size="md">
+    <Modal title={target ? 'Modifier objectif' : 'Nouvel objectif'} onClose={onClose} size="sm">
       <div className="space-y-3">
         <Field
           label="Utilisateur"

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -21,7 +21,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         active:            body.active            ?? true,
       },
     })
-    void logAudit(Number(session.user?.id), 'Modification', 'Services', id)
     return ok(service)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
@@ -38,7 +37,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
     await prisma.service.delete({ where: { id } })
-    void logAudit(Number(session.user?.id), 'Suppression', 'Services', id)
     return ok({ deleted: true })
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

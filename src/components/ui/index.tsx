@@ -63,7 +63,7 @@ export function Card({ title, children, actions, className = '', noPad = false }
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className={noPad ? 'overflow-x-auto' : 'p-4'}>{children}</div>
+      <div className={noPad ? '' : 'p-4'}>{children}</div>
     </div>
   )
 }

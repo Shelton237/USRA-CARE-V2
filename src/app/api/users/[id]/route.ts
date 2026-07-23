@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 import { NextRequest } from 'next/server'
 import bcrypt from 'bcryptjs'
 
@@ -22,7 +22,6 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       include: { country: true, office: true },
     })
     const { password: _, ...safeUser } = user
-    void logAudit(Number(session.user?.id), 'Modification', 'Utilisateurs', Number(id))
     return ok(safeUser)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
@@ -39,7 +38,6 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (String(session.user?.id) === id) return err('Vous ne pouvez pas supprimer votre propre compte', 400)
 
     await prisma.user.delete({ where: { id: Number(id) } })
-    void logAudit(Number(session.user?.id), 'Suppression', 'Utilisateurs', Number(id))
     return ok({ deleted: true })
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

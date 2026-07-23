@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, scopeFilter, logAudit } from '@/lib/api'
+import { ok, err, requireAuth, scopeFilter } from '@/lib/api'
 import { NextRequest } from 'next/server'
 
 export async function GET(_req: NextRequest) {
   try {
     const session = await requireAuth()
-    const scope = scopeFilter(session, _req)
+    const scope = scopeFilter(session)
     const advances = await prisma.advance.findMany({
       where: scope.countryId ? { candidate: { countryId: scope.countryId } } : {},
       include: {
@@ -22,7 +22,7 @@ export async function GET(_req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth()
+    await requireAuth()
     const b = await req.json()
     if (!b.candidateId || !b.amount) return err('Champs requis manquants', 400)
 
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
         requestDate:   b.requestDate ? new Date(b.requestDate) : new Date(),
       },
     })
-    void logAudit(Number(session.user?.id), 'Création', 'Avances', advance.id)
     return ok(advance, 201)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

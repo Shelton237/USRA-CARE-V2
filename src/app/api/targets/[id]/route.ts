@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { ok, err, requireAuth, logAudit } from '@/lib/api'
+import { ok, err, requireAuth } from '@/lib/api'
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -23,7 +23,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       include: { user: { select: { id: true, firstName: true, lastName: true, role: true, countryId: true } } },
     })
     console.log('[PUT /api/targets/[id]] updated ok, id=', target.id)
-    void logAudit(Number(session.user?.id), 'Modification', 'Objectifs', id)
     return ok(target)
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)
@@ -40,7 +39,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const id = parseInt(idStr)
     if (isNaN(id)) return err('ID invalide', 400)
     await prisma.target.delete({ where: { id } })
-    void logAudit(Number(session.user?.id), 'Suppression', 'Objectifs', id)
     return ok({ deleted: true })
   } catch (e: any) {
     if (e.message === 'UNAUTHORIZED') return err('Non autorisé', 401)

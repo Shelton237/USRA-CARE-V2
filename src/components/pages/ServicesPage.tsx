@@ -531,7 +531,8 @@ export function ServicesPage() {
   const qc = useQueryClient()
   const B = process.env.NEXT_PUBLIC_APP_URL ?? ''
   const role = (session?.user?.role ?? 'operator') as string
-  const canEdit = sessionStatus === 'authenticated' && role !== 'operator'
+  const canCreate = sessionStatus === 'authenticated'
+  const canEdit   = sessionStatus === 'authenticated' && role !== 'operator'
 
   const [creating, setCreating]         = useState(false)
   const [editing, setEditing]           = useState<any>(null)
@@ -572,7 +573,7 @@ export function ServicesPage() {
                 Templates
               </Btn>
             )}
-            {canEdit && (
+            {canCreate && (
               <Btn icon={<Plus size={14}/>} onClick={() => setCreating(true)}>Nouveau service</Btn>
             )}
           </div>

@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSession } from 'next-auth/react'
 import { Modal, Field, Btn } from '@/components/ui'
 import { useAppStore } from '@/store/app'
-import { Search, Plus, Trash2, ShieldOff } from 'lucide-react'
+import { Search, Plus, Trash2 } from 'lucide-react'
 
 // ─── Badges rôles ────────────────────────────────────────────────────
 const ROLE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
@@ -20,16 +20,6 @@ export function UsersPage() {
   const qc = useQueryClient()
   const isAdmin = session?.user?.role === 'admin'
   const isDG    = session?.user?.role === 'dg'
-
-  if (session && session.user?.role === 'operator') {
-    return (
-      <div className="fade-in flex flex-col items-center justify-center py-20 text-slate-400">
-        <ShieldOff size={40} style={{ marginBottom: 12, opacity: 0.4 }} />
-        <p style={{ fontSize: 15, fontWeight: 600, color: '#64748B' }}>Accès réservé à l'administration</p>
-        <p style={{ fontSize: 13, marginTop: 6 }}>Les opérateurs ne peuvent pas gérer les utilisateurs.</p>
-      </div>
-    )
-  }
 
   const [search,   setSearch]   = useState('')
   const [creating, setCreating] = useState(false)
@@ -337,7 +327,7 @@ function UserForm({ user, currentUserRole, currentUserCountryId, onClose, onSave
         </div>
 
         {/* ── Row 3 : Rôle | Pays | Bureau (3 cols) ─────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
           <div>
             <label style={label}>Rôle</label>
             <select style={select} value={f.role}
