@@ -457,6 +457,8 @@ function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoi
   const { showToast } = useAppStore()
   const [saving, setSaving] = useState(false)
   const isEdit = !!invoice
+  const [otSearch, setOtSearch] = useState('')
+  const [otOpen, setOtOpen] = useState(false)
 
   const { data: clientsData } = useQuery({
     queryKey: ['clients-for-invoices'],
@@ -503,7 +505,15 @@ function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoi
         overtimeRecordId: o.id,
       }],
     }))
+    setOtSearch('')
+    setOtOpen(false)
   }
+
+  const otFiltered = billableOvertime.filter((o: any) => {
+    if (!otSearch) return true
+    const name = `${o.candidate.firstName} ${o.candidate.lastName}`.toLowerCase()
+    return name.includes(otSearch.toLowerCase())
+  })
 
   useEffect(() => {
     if (selectedClient?.paymentTermsDays && f.date && !isEdit) {
@@ -583,16 +593,36 @@ function NouvelleFactureModal({ onClose, invoice }: { onClose: () => void; invoi
           <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wide mb-2">
             Heures sup. validées non facturées ({billableOvertime.length})
           </div>
-          <div className="space-y-1.5">
-            {billableOvertime.map((o: any) => (
-              <div key={o.id} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-amber-100">
-                <div className="text-xs text-slate-700">
-                  <span className="font-semibold">{o.candidate.firstName} {o.candidate.lastName}</span>
-                  <span className="text-slate-400 ml-2">{o.hours}h · {fmtDate(o.date)} · {fmt(o.amount, selectedClient?.country?.symbol)}</span>
-                </div>
-                <Btn size="sm" variant="secondary" onClick={() => addOvertimeLine(o)}>+ Ajouter</Btn>
+          <div className="relative">
+            <input
+              value={otSearch}
+              onChange={e => { setOtSearch(e.target.value); setOtOpen(true) }}
+              onFocus={() => setOtOpen(true)}
+              onBlur={() => setTimeout(() => setOtOpen(false), 150)}
+              placeholder="Rechercher un employé pour ajouter ses heures sup..."
+              className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+            {otOpen && (
+              <div className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-amber-200 bg-white shadow-lg">
+                {otFiltered.length === 0 ? (
+                  <div className="px-3 py-2.5 text-xs text-slate-400">Aucun résultat</div>
+                ) : otFiltered.map((o: any) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onMouseDown={() => addOvertimeLine(o)}
+                    className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-amber-50 border-b border-slate-50 last:border-0">
+                    <span className="text-xs text-slate-700">
+                      <span className="font-semibold">{o.candidate.firstName} {o.candidate.lastName}</span>
+                      <span className="text-slate-400 ml-2">{o.hours}h · {fmtDate(o.date)}</span>
+                    </span>
+                    <span className="text-xs font-semibold text-amber-700 ml-3 whitespace-nowrap">
+                      {fmt(o.amount, selectedClient?.country?.symbol)}
+                    </span>
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         </div>
       )}
